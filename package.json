@@ -1,0 +1,33 @@
+{
+  "name": "archi",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Local-first, deterministic code architecture explorer",
+  "license": "MIT",
+  "bin": {
+    "archi": "./bin/archi.js"
+  },
+  "files": [
+    "bin/",
+    "dist/"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build:server": "tsc",
+    "build": "npm run build:server && npm --prefix web run build",
+    "prepublishOnly": "npm run build",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@fastify/static": "^7.0.4",
+    "fastify": "^4.28.1",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2"
+  }
+}

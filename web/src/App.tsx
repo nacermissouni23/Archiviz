@@ -1,0 +1,402 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Layers, X, RefreshCw, Network, Activity, Globe2, Settings } from 'lucide-react';
+import Sidebar from './Sidebar';
+import CodeView from './CodeView';
+import Inspector from './Inspector';
+import DepsView from './DepsView';
+import OverviewView from './components/OverviewView';
+import ContextView from './components/ContextView';
+import TraceView from './TraceView';
+import SettingsModal from './components/SettingsModal';
+import FileIconFor from './components/FileIcon';
+import type { RepoInfo, TreeNode } from './types';
+
+const LANG_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
+
+export const OVERVIEW_PATH = '@overview';
+export const TRACE_PREFIX = '@trace:';
+export const CONTEXT_PATH = '@context';
+
+export default function App() {
+  const [repo, setRepo] = useState<RepoInfo | null>(null);
+  const [tree, setTree] = useState<TreeNode | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [openFile, setOpenFile] = useState<TreeNode | null>(null);
+  const [tabs, setTabs] = useState<TreeNode[]>([]);
+  const [sidebarWidth, setSidebarWidth] = useState(260);
+  const [inspectorWidth, setInspectorWidth] = useState(320);
+  const [symbolId, setSymbolId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<Record<string, 'code' | 'deps'>>({});
+  const [refreshing, setRefreshing] = useState(false);
+  const [fresh, setFresh] = useState(true);
+  const [dataTick, setDataTick] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
+  const [hasAiKey, setHasAiKey] = useState(false);
+  const resizing = useRef<'left' | 'right' | null>(null);
+  const restored = useRef(false);
+  const restoredEmpty = useRef(true);
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('archi-ui');
+      if (saved) {
+        const s = JSON.parse(saved);
+        if (Array.isArray(s.tabs)) setTabs(s.tabs);
+        if (s.openFile) setOpenFile(s.openFile);
+        if (s.viewMode) setViewMode(s.viewMode);
+        if (typeof s.symbolId === 'string') setSymbolId(s.symbolId);
+        restoredEmpty.current = !s.tabs || s.tabs.length === 0;
+      }
+    } catch {
+      /* ignore */
+    }
+    restored.current = true;
+  }, []);
+
+  // L1: open System Context by default on a fresh session (no restored tabs)
+  useEffect(() => {
+    if (!restored.current) return;
+    if (!restoredEmpty.current) return;
+    if (sessionStorage.getItem('archi-ctx-done')) return;
+    sessionStorage.setItem('archi-ctx-done', '1');
+    const ctxNode = { name: 'Context', path: CONTEXT_PATH, type: 'file' as const, ext: '' };
+    setTabs([ctxNode]);
+    setOpenFile(ctxNode);
+  }, []);
+
+  useEffect(() => {
+    if (!restored.current) return;
+    try {
+      sessionStorage.setItem(
+        'archi-ui',
+        JSON.stringify({ tabs, openFile, viewMode, symbolId })
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [tabs, openFile, viewMode, symbolId]);
+
+  const refreshIndex = () => {
+    setRefreshing(true);
+    fetch('/api/index/refresh', { method: 'POST' })
+      .then((r) => r.json())
+      .then(() => setFresh(true))
+      .catch(() => {})
+      .finally(() => {
+        setRefreshing(false);
+        return fetch('/api/tree')
+          .then((r) => r.json())
+          .then((t) => {
+            setTree(t);
+            setDataTick((n) => n + 1);
+          })
+          .catch(() => {});
+      });
+  };
+
+  useEffect(() => {
+    let alive = true;
+    const poll = () =>
+      fetch('/api/index/fresh')
+        .then((r) => r.json())
+        .then((d) => alive && setFresh(d.fresh))
+        .catch(() => {});
+    poll();
+    const t = setInterval(poll, 5000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/ai/status')
+      .then((r) => r.json())
+      .then((d) => setHasAiKey(Boolean(d.hasKey)))
+      .catch(() => {});
+  }, [dataTick]);
+
+  const navigateSymbol = (id: string) => {
+    setSymbolId(id || null);
+    if (!id) return;
+    const fileId = id.slice(0, id.indexOf(':'));
+    if (fileId && openFile && fileId !== openFile.path) {
+      const node: TreeNode = {
+        name: fileId.split('/').pop() ?? fileId,
+        path: fileId,
+        type: 'file',
+        ext: fileId.slice(fileId.lastIndexOf('.')),
+      };
+      openInTab(node);
+    }
+  };
+
+  const startResize = useCallback(
+    (side: 'left' | 'right') => (e: React.MouseEvent) => {
+      e.preventDefault();
+      resizing.current = side;
+      const move = (ev: MouseEvent) => {
+        if (!resizing.current) return;
+        if (resizing.current === 'left') {
+          setSidebarWidth(Math.min(Math.max(ev.clientX, 160), window.innerWidth - 380));
+        } else {
+          setInspectorWidth(Math.min(Math.max(window.innerWidth - ev.clientX, 240), 560));
+        }
+      };
+      const up = () => {
+        resizing.current = null;
+        document.body.style.cursor = '';
+        window.removeEventListener('mousemove', move);
+        window.removeEventListener('mouseup', up);
+      };
+      document.body.style.cursor = 'col-resize';
+      window.addEventListener('mousemove', move);
+      window.addEventListener('mouseup', up);
+    },
+    []
+  );
+
+  const openInTab = (node: TreeNode) => {
+    setOpenFile(node);
+    setTabs((ts) => (ts.some((t) => t.path === node.path) ? ts : [...ts, node]));
+  };
+
+  const openPath = (path: string, ext: string) =>
+    openInTab({ name: path.split('/').pop() ?? path, path, type: 'file', ext });
+
+  const openTrace = (symId: string, symName: string) => {
+    const tracePath = `${TRACE_PREFIX}${symId}`;
+    const existing = tabs.find((t) => t.path === tracePath);
+    if (existing) {
+      setOpenFile(existing);
+    } else {
+      const node: TreeNode = {
+        name: `${symName}()`,
+        path: tracePath,
+        type: 'file',
+        ext: '',
+      };
+      openInTab(node);
+    }
+  };
+
+  const mode: 'code' | 'deps' =
+    openFile && LANG_EXTS.has(openFile.ext ?? '')
+      ? viewMode[openFile.path] ?? 'code'
+      : 'code';
+
+  const closeTab = (path: string) => {
+    setTabs((ts) => {
+      const idx = ts.findIndex((t) => t.path === path);
+      const next = ts.filter((t) => t.path !== path);
+      if (openFile?.path === path) {
+        setOpenFile(next[Math.min(idx, next.length - 1)] ?? null);
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    fetch('/api/repo')
+      .then((r) => r.json())
+      .then(setRepo)
+      .catch(() => setError('Could not reach the archi server.'));
+    refreshIndex();
+  }, []);
+
+  return (
+    <div className="app">
+      <div className="titlebar">
+        <div className="titlebar-brand">
+          <Layers size={16} strokeWidth={1.8} />
+          Archi
+        </div>
+        {repo && (
+          <div className="titlebar-project">
+            <strong>{repo.name}</strong>
+          </div>
+        )}
+        <div className="titlebar-spacer" />
+        <button
+          className={`icon-btn${hasAiKey ? ' ai-on' : ''}`}
+          title={hasAiKey ? 'AI annotations enabled' : 'Add AI API key'}
+          onClick={() => setShowSettings(true)}
+        >
+          <Settings size={15} strokeWidth={1.8} />
+        </button>
+        <button
+          className={`icon-btn${openFile?.path === OVERVIEW_PATH ? ' ov-active' : ''}`}
+          title="Component overview"
+          onClick={() =>
+            openInTab({
+              name: 'Overview',
+              path: OVERVIEW_PATH,
+              type: 'file',
+              ext: '',
+            })
+          }
+        >
+          <Network size={15} strokeWidth={1.8} />
+        </button>
+        <button
+          className={`icon-btn${openFile?.path === CONTEXT_PATH ? ' ov-active' : ''}`}
+          title="System context"
+          onClick={() =>
+            openInTab({
+              name: 'Context',
+              path: CONTEXT_PATH,
+              type: 'file',
+              ext: '',
+            })
+          }
+        >
+          <Globe2 size={15} strokeWidth={1.8} />
+        </button>
+        <span className={`fresh-label ${fresh ? 'ok' : 'stale'}`}>
+          {fresh ? 'Up to date' : 'Click to update'}
+        </span>
+        <button
+          className={`icon-btn refresh-btn${fresh ? ' fresh' : ' stale'}`}
+          title={fresh ? 'Index up to date' : 'Files changed — click to re-index'}
+          onClick={refreshIndex}
+          disabled={refreshing}
+        >
+          <RefreshCw size={15} strokeWidth={1.8} />
+        </button>
+      </div>
+
+      <div className="app-body">
+        {error ? (
+          <div className="main">
+            <div className="center-empty">
+              <div className="empty-card">
+                <div className="empty-title">Server unreachable</div>
+                <div className="empty-desc">{error}</div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Sidebar tree={tree} onFileSelect={openInTab} width={sidebarWidth} />
+            <div className="resize-handle" onMouseDown={startResize('left')} />
+            <div className="main">
+              {tabs.length > 0 && (
+                <div className="tabbar">
+                  {tabs.map((t) => (
+                    <div
+                      key={t.path}
+                      className={`tab${openFile?.path === t.path ? ' active' : ''}`}
+                      onClick={() => setOpenFile(t)}
+                    >
+                      {t.path === OVERVIEW_PATH ? (
+                        <Network size={13} strokeWidth={2} />
+                      ) : t.path === CONTEXT_PATH ? (
+                        <Globe2 size={13} strokeWidth={2} />
+                      ) : t.path.startsWith(TRACE_PREFIX) ? (
+                        <Activity size={13} strokeWidth={2} />
+                      ) : (
+                        <FileIconFor node={t} />
+                      )}
+                      {t.name}
+                      <button
+                        className="tab-close"
+                        title="Close tab"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          closeTab(t.path);
+                        }}
+                      >
+                        <X size={13} strokeWidth={2} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {openFile && LANG_EXTS.has(openFile.ext ?? '') && (
+                <div className="view-toggle">
+                  <button
+                    className={mode === 'code' ? 'active' : ''}
+                    onClick={() =>
+                      setViewMode((m) => ({ ...m, [openFile.path]: 'code' }))
+                    }
+                  >
+                    Code
+                  </button>
+                  <button
+                    className={mode === 'deps' ? 'active' : ''}
+                    onClick={() =>
+                      setViewMode((m) => ({ ...m, [openFile.path]: 'deps' }))
+                    }
+                  >
+                    Deps
+                  </button>
+                </div>
+              )}
+              {openFile?.path === OVERVIEW_PATH ? (
+                <OverviewView
+                  key={`ov-${dataTick}`}
+                  repoName={repo?.name ?? ''}
+                  onOpenFile={openPath}
+                />
+              ) : openFile?.path === CONTEXT_PATH ? (
+                <ContextView
+                  key={`ctx-${dataTick}`}
+                  repoName={repo?.name ?? ''}
+                  onOpenFile={openPath}
+                  onOpenOverview={() =>
+                    openInTab({ name: 'Overview', path: OVERVIEW_PATH, type: 'file', ext: '' })
+                  }
+                />
+              ) : openFile?.path.startsWith(TRACE_PREFIX) ? (
+                <TraceView
+                  key={`trace-${openFile.path}-${dataTick}`}
+                  symbolId={openFile.path.slice(TRACE_PREFIX.length)}
+                  onOpenFile={openPath}
+                />
+              ) : openFile ? (
+                mode === 'deps' ? (
+                  <DepsView
+                    key={`deps-${openFile.path}-${dataTick}`}
+                    filePath={openFile.path}
+                    onOpenFile={openPath}
+                  />
+                ) : (
+                  <CodeView
+                    key={`${openFile.path}-${dataTick}`}
+                    filePath={openFile.path}
+                    ext={openFile.ext}
+                    selectedSymbolId={symbolId}
+                    onSymbolClick={navigateSymbol}
+                  />
+                )
+              ) : (
+                <div className="center-empty">
+                  <div className="empty-card">
+                    <div className="empty-title">Nothing selected</div>
+                    <div className="empty-desc">
+                      Pick a file or folder in the sidebar to start exploring.
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="resize-handle" onMouseDown={startResize('right')} />
+            <Inspector
+              symbolId={openFile && !openFile.path.startsWith('@') ? symbolId : null}
+              onNavigate={navigateSymbol}
+              onTrace={openTrace}
+              width={inspectorWidth}
+            />
+          </>
+        )}
+        {showSettings && (
+          <SettingsModal
+            hasKey={hasAiKey}
+            onClose={() => setShowSettings(false)}
+            onSaved={() => setDataTick((n) => n + 1)}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
