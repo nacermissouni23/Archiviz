@@ -42,6 +42,8 @@ export class GraphStore {
   routes: { fileId: string; method: string; path: string }[] = [];
   /** any file references process.argv */
   hasArgv = false;
+  /** dependency manifest entries: pkg -> "go.mod, pom.xml" */
+  manifestDeps = new Map<string, string>();
 
   clear() {
     this.nodes.clear();
@@ -54,6 +56,12 @@ export class GraphStore {
     this.envVars.clear();
     this.routes = [];
     this.hasArgv = false;
+    this.manifestDeps.clear();
+  }
+
+  addManifestDep(name: string, source: string) {
+    const prev = this.manifestDeps.get(name);
+    this.manifestDeps.set(name, prev ? `${prev}, ${source}` : source);
   }
 
   addExternal(name: string, fileId?: string) {

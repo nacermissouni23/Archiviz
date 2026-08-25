@@ -26,7 +26,73 @@ const SYSTEM_SIGNATURES: Record<string, SystemKind> = {
   nodemailer: 'email', resend: 'email',
   // search
   elasticsearch: 'search', '@elastic/elasticsearch': 'search', meilisearch: 'search',
+  // ---- cross-ecosystem aliases (python / go / jvm / rust / ruby / php) ----
+  psycopg2: 'database', 'psycopg2-binary': 'database', psycopg: 'database', pymongo: 'database', sqlalchemy: 'database',
+  'mysql-connector-python': 'database', mysqlclient: 'database', motor: 'database',
+  'gorm.io/gorm': 'database', 'github.com/lib/pq': 'database',
+  'github.com/go-sql-driver/mysql': 'database', 'github.com/redis/go-redis': 'database',
+  diesel: 'database', sqlx: 'database', sequel: 'database',
+  boto3: 'cloud', 'google-cloud-storage': 'cloud', 'google.golang.org/api': 'cloud',
+  celery: 'queue', 'confluent-kafka': 'queue', pika: 'queue',
+  'github.com/segmentio/kafka-go': 'queue', 'php-amqplib/php-amqplib': 'queue',
+  sidekiq: 'queue', resque: 'queue',
+  // Java/JVM ecosystem
+  'org.springframework.boot': 'api', 'org.springframework': 'api', 'org.springframework.web': 'api',
+  'org.springframework.boot:spring-boot-starter-web': 'api', 'org.springframework.boot:spring-boot-starter-data-jpa': 'database',
+  'org.postgresql:postgresql': 'database', 'com.h2database:h2': 'database', 'com.zaxxer:HikariCP': 'database',
+  'org.mybatis:mybatis': 'database', 'org.hibernate:hibernate-core': 'database',
+  'org.apache.kafka:kafka-clients': 'queue', 'org.springframework.kafka:spring-kafka': 'queue',
+  'com.rabbitmq:amqp-client': 'queue', 'org.apache.activemq:activemq-client': 'queue',
+  'org.elasticsearch.client:elasticsearch-rest-high-level-client': 'search',
+  'co.elastic.clients:elasticsearch-java': 'search', 'org.elasticsearch:elasticsearch': 'search',
+  'com.amazonaws:aws-java-sdk-s3': 'cloud', 'software.amazon.awssdk:s3': 'cloud',
+  'com.google.cloud:google-cloud-storage': 'cloud', 'com.sendgrid:sendgrid-java': 'email',
+  'javax.mail:javax.mail-api': 'email', 'org.apache.commons:commons-email': 'email',
+  'com.twilio.sdk:twilio': 'api', 'com.stripe:stripe-java': 'api',
 };
+
+const LABEL_OVERRIDES: Record<string, string> = {
+  pg: 'PostgreSQL', postgres: 'PostgreSQL', mysql2: 'MySQL', mysql: 'MySQL',
+  mongodb: 'MongoDB', mongoose: 'MongoDB', sqlite3: 'SQLite', 'better-sqlite3': 'SQLite',
+  ioredis: 'Redis', redis: 'Redis', '@prisma/client': 'Prisma', 'drizzle-orm': 'Drizzle ORM',
+  openai: 'OpenAI', '@google/generative-ai': 'Google AI', '@google-cloud/vertexai': 'Vertex AI',
+  '@anthropic-ai/sdk': 'Anthropic Claude', anthropic: 'Anthropic Claude',
+  'aws-sdk': 'AWS', '@aws-sdk/client-s3': 'AWS S3', '@aws-sdk/client-dynamodb': 'DynamoDB',
+  '@aws-sdk/client-sqs': 'AWS SQS', '@aws-sdk/client-sns': 'AWS SNS',
+  '@google-cloud/storage': 'Google Cloud Storage', '@azure/storage-blob': 'Azure Blob Storage',
+  bullmq: 'BullMQ', kafkajs: 'Kafka', amqplib: 'RabbitMQ', nats: 'NATS',
+  '@elastic/elasticsearch': 'Elasticsearch', elasticsearch: 'Elasticsearch',
+  '@sendgrid/mail': 'SendGrid',
+  psycopg2: 'PostgreSQL', 'psycopg2-binary': 'PostgreSQL', psycopg: 'PostgreSQL',
+  pymongo: 'MongoDB', sqlalchemy: 'SQLAlchemy', 'mysql-connector-python': 'MySQL',
+  mysqlclient: 'MySQL', 'github.com/lib/pq': 'PostgreSQL',
+  'github.com/redis/go-redis': 'Redis', 'gorm.io/gorm': 'GORM',
+  'github.com/go-sql-driver/mysql': 'MySQL', boto3: 'AWS', celery: 'Celery',
+  'confluent-kafka': 'Kafka', pika: 'RabbitMQ', 'google-cloud-storage': 'Google Cloud Storage',
+  // Java/JVM
+  'org.springframework.boot': 'Spring Boot', 'org.springframework': 'Spring',
+  'org.springframework.boot:spring-boot-starter-web': 'Spring Web',
+  'org.springframework.boot:spring-boot-starter-data-jpa': 'Spring Data JPA',
+  'org.postgresql:postgresql': 'PostgreSQL', 'com.h2database:h2': 'H2 Database',
+  'com.zaxxer:HikariCP': 'HikariCP', 'org.mybatis:mybatis': 'MyBatis',
+  'org.hibernate:hibernate-core': 'Hibernate',
+  'org.apache.kafka:kafka-clients': 'Kafka', 'org.springframework.kafka:spring-kafka': 'Spring Kafka',
+  'com.rabbitmq:amqp-client': 'RabbitMQ',
+  'co.elastic.clients:elasticsearch-java': 'Elasticsearch',
+  'com.amazonaws:aws-java-sdk-s3': 'AWS S3', 'software.amazon.awssdk:s3': 'AWS S3',
+  'com.google.cloud:google-cloud-storage': 'Google Cloud Storage',
+  'com.stripe:stripe-java': 'Stripe', 'com.twilio.sdk:twilio': 'Twilio',
+};
+
+function matchSystemKind(name: string): { kind: SystemKind; key: string } | undefined {
+  const exact = SYSTEM_SIGNATURES[name];
+  if (exact) return { kind: exact, key: name };
+  // go-style versioned paths: github.com/redis/go-redis/v9 → github.com/redis/go-redis
+  for (const [key, kind] of Object.entries(SYSTEM_SIGNATURES)) {
+    if (key.includes('/') && name.startsWith(key + '/')) return { kind, key };
+  }
+  return undefined;
+}
 
 const SERVER_PACKAGES = new Set([
   'express', 'fastify', 'koa', '@hapi/hapi', 'hono', 'next', 'restify',
@@ -61,20 +127,6 @@ const ENV_HINTS: Record<SystemKind, RegExp[]> = {
   search: [/ELASTIC/, /SEARCH_/],
 };
 
-const LABEL_OVERRIDES: Record<string, string> = {
-  pg: 'PostgreSQL', postgres: 'PostgreSQL', mysql2: 'MySQL', mysql: 'MySQL',
-  mongodb: 'MongoDB', mongoose: 'MongoDB', sqlite3: 'SQLite', 'better-sqlite3': 'SQLite',
-  ioredis: 'Redis', redis: 'Redis', '@prisma/client': 'Prisma', 'drizzle-orm': 'Drizzle ORM',
-  openai: 'OpenAI', '@google/generative-ai': 'Google AI', '@google-cloud/vertexai': 'Vertex AI',
-  '@anthropic-ai/sdk': 'Anthropic Claude', anthropic: 'Anthropic Claude',
-  'aws-sdk': 'AWS', '@aws-sdk/client-s3': 'AWS S3', '@aws-sdk/client-dynamodb': 'DynamoDB',
-  '@aws-sdk/client-sqs': 'AWS SQS', '@aws-sdk/client-sns': 'AWS SNS',
-  '@google-cloud/storage': 'Google Cloud Storage', '@azure/storage-blob': 'Azure Blob Storage',
-  bullmq: 'BullMQ', kafkajs: 'Kafka', amqplib: 'RabbitMQ', nats: 'NATS',
-  '@elastic/elasticsearch': 'Elasticsearch', elasticsearch: 'Elasticsearch',
-  '@sendgrid/mail': 'SendGrid', 'drizzle-orm/node-postgres': 'Drizzle ORM',
-};
-
 const SERVER_REL = 'HTTP';
 
 export interface ContextSystem {
@@ -86,6 +138,8 @@ export interface ContextSystem {
   importFiles: string[];
   envVars: string[];
   usedBy: string[];
+  /** set when the system is only a declared dependency, never imported */
+  declaredIn?: string;
 }
 
 export interface ContextActor {
@@ -99,6 +153,8 @@ export interface ContextLibrary {
   name: string;
   count: number;
   role?: string;
+  /** set when the library is only a declared dependency, never imported */
+  declaredIn?: string;
 }
 
 export interface ContextAnnotations {
@@ -119,6 +175,7 @@ export interface ContextData {
 }
 
 function prettyPkg(name: string): string {
+  if (name.includes('/')) return name.split('/').pop() ?? name;
   const base = name.startsWith('@') ? name.split('/')[1] : name;
   return base.charAt(0).toUpperCase() + base.slice(1);
 }
@@ -149,6 +206,26 @@ function detectActors(store: GraphStore, rootPath: string): ContextActor[] {
     }
   } catch {
     /* no package.json */
+  }
+  if (!cliEvidence) {
+    try {
+      const pyproject = fs.readFileSync(path.join(rootPath, 'pyproject.toml'), 'utf8');
+      const scripts = pyproject.match(/\[project\.scripts\]([\s\S]*?)(?:\n\[|$)/);
+      if (scripts) {
+        const m = scripts[1].match(/^([\w.-]+)\s*=/m);
+        if (m) cliEvidence = { bin: `pyproject.toml: ${m[1]}` };
+      }
+    } catch {
+      /* no pyproject */
+    }
+  }
+  if (!cliEvidence) {
+    for (const node of store.nodes.values()) {
+      if (node.type === 'file' && (node.id === 'cli.py' || node.id === '__main__.py')) {
+        cliEvidence = { bin: node.id };
+        break;
+      }
+    }
   }
   if (!cliEvidence) {
     for (const node of store.nodes.values()) {
@@ -212,16 +289,16 @@ export function buildContext(store: GraphStore, rootName: string, rootPath: stri
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 
   for (const { name, count } of externals) {
-    const kind = SYSTEM_SIGNATURES[name];
+    const match = matchSystemKind(name);
     const users = [...(store.externalUsers.get(name) ?? [])].sort();
-    if (kind) {
+    if (match) {
       const importFiles = users.slice(0, 3);
-      const envVars = correlateEnv(kind, name, store.envVars);
+      const envVars = correlateEnv(match.kind, name, store.envVars);
       systems.push({
         name,
-        kind,
-        label: LABEL_OVERRIDES[name] ?? prettyPkg(name),
-        relation: KIND_REL[kind],
+        kind: match.kind,
+        label: LABEL_OVERRIDES[name] ?? LABEL_OVERRIDES[match.key] ?? prettyPkg(name),
+        relation: KIND_REL[match.kind],
         confidence: 'high',
         importFiles,
         envVars,
@@ -229,6 +306,28 @@ export function buildContext(store: GraphStore, rootName: string, rootPath: stri
       });
     } else {
       libraries.push({ name, count });
+    }
+  }
+
+  // manifest-only dependencies (declared but never imported) → medium confidence
+  for (const [name, sources] of store.manifestDeps) {
+    if (store.externals.has(name)) continue; // imported → already handled above as high
+    const match = matchSystemKind(name);
+    if (match) {
+      const declaredIn = sources.split(', ')[0];
+      systems.push({
+        name,
+        kind: match.kind,
+        label: LABEL_OVERRIDES[name] ?? LABEL_OVERRIDES[match.key] ?? prettyPkg(name),
+        relation: KIND_REL[match.kind],
+        confidence: 'medium',
+        importFiles: [],
+        envVars: correlateEnv(match.kind, name, store.envVars),
+        usedBy: [],
+        declaredIn,
+      });
+    } else {
+      libraries.push({ name, count: 0, declaredIn: sources.split(', ')[0] });
     }
   }
 

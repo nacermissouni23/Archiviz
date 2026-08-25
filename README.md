@@ -3,10 +3,12 @@
 Local-first, deterministic code architecture explorer. No AI, no API keys, no cloud, no database — everything runs on your machine.
 
 ```bash
-npx archi C:\path\to\your\project
+npx archi /path/to/your/project
 ```
 
 Then open **http://127.0.0.1:4840** (opens automatically).
+
+---
 
 ## What it does
 
@@ -15,7 +17,7 @@ npx archi <folder>
    ↓
 localhost web app
    ↓
-Index codebase (TypeScript compiler API + pyright)
+Index codebase (multiple engines, see below)
    ↓
 Deterministic code graph
    ↓
@@ -31,12 +33,31 @@ Drill down:  Repository → Folder → File → Class → Function → source co
 
 ## Supported languages
 
-| Language | Symbols | Imports | Call edges |
-|---|---|---|---|
-| TypeScript / JavaScript | ✅ (ts-morph) | ✅ | ✅ type-checked (TS LanguageService) |
-| Python | ✅ (pyright LSP) | ✅ | ✅ type-checked (pyright references) |
+Archi uses **four indexing engines** to cover 36 languages:
+
+| Engine | Languages | Indexing quality |
+|--------|-----------|-----------------|
+| **TS LanguageService** | TypeScript, JavaScript | Full — symbols, imports, type-checked call edges, env vars, route detection |
+| **Pyright LSP** | Python | Full — symbols, imports, type-checked call edges |
+| **Gopls LSP** | Go | Full — symbols, imports, call edges |
+| **Tree-sitter WASM** | C, C++, C#, Rust, Ruby, PHP, Kotlin, Swift, Java, Dart, Elixir, Elm, Lua, Objective-C, OCaml, Scala, Zig, Bash, Solidity, ReScript, and more | AST-based — symbols, imports, call edges |
+
+**Manifest parsers** also detect dependencies from: `package.json`, `requirements.txt`, `pyproject.toml`, `go.mod`, `pom.xml`, `build.gradle`, `Cargo.toml`, `composer.json`, `Gemfile`, `*.csproj`.
 
 > If the source code says it, Archi knows it. If Archi doesn't know it, it doesn't invent it.
+
+## The five levels of understanding
+
+Archi indexes your code once and derives five progressive views:
+
+| Level | View | What it shows |
+|-------|------|---------------|
+| **L0** | Repository Brief | One-paragraph summary + key files |
+| **L1** | System Context | External dependencies, env vars, confidence ratings |
+| **L2** | Component Overview | Folder structure, language breakdown, symbol counts |
+| **L3** | Dependencies | Import graph — who depends on whom |
+| **L4** | Execution Trace | Entry points, call chains, route flows |
+| **L5** | Symbol Inspector | Click any symbol — callers, callees, definition |
 
 ## CLI options
 
@@ -48,37 +69,112 @@ archi --no-open         don't auto-open the browser
 
 You can also start without a path (`npx archi`) and paste one into the UI.
 
+## Architecture
+
+```text
+CLI (bin/archi.js)
+  └── Fastify server (src/server.ts)
+        ├── Indexers
+        │     ├── FileWalker — walks files, skips node_modules/.git/etc, respects .gitignore
+        │     ├── TsIndexer — TypeScript/JavaScript (TS LanguageService)
+        │     ├── PyEngine — Python (pyright LSP over JSON-RPC)
+        │     ├── GoEngine — Go (gopls LSP over JSON-RPC)
+        │     └── TreeSitterEngine — 32 languages (web-tree-sitter WASM)
+        ├── Manifests — parses package.json, requirements.txt, go.mod, pom.xml, etc.
+        ├── GraphStore — in-memory graph (nodes + edges), callersOf/calleesOf queries
+        ├── Context — SYSTEM_SIGNATURES for 50+ frameworks/libraries
+        ├── REST API (/api/repos/:id/...)
+        └── Static React app (Vite + React + React Flow + Mermaid)
+```
+
+Key design decisions:
+
+- **In-memory only** — no database, no persistence. Re-index on demand.
+- **Zero network calls** — everything runs locally. No telemetry.
+- **Deterministic** — same code + same engine = same graph, every time.
+- **Confidence-rated** — HIGH = imported in indexed code; MED = env-var-only or manifest-declared-only.
+
+## Project structure
+
+```text
+archi/
+  bin/archi.js           CLI entry point
+  src/
+    cli.ts               CLI argument parsing
+    server.ts            Fastify server, routes, reindex pipeline
+    types.ts             Shared types
+    walk.ts              File walker (skips node_modules, .git, etc.)
+    index/
+      tsIndexer.ts       TypeScript/JavaScript indexer
+      pyEngine.ts        Python LSP engine (pyright)
+      goEngine.ts        Go LSP engine (gopls)
+      lsp.ts             Generic LSP client (JSON-RPC over stdio)
+      treeSitterEngine.ts Tree-sitter WASM engine (32 languages)
+      manifests.ts       Manifest parsers (10+ formats)
+      store.ts           GraphStore — in-memory graph
+      context.ts         SYSTEM_SIGNATURES, LABEL_OVERRIDES, matchSystemKind()
+      brief.ts           L0: repository brief generation
+      narrative.ts       L1: system context narrative
+      overview.ts        L2: component overview
+      trace.ts           L4: execution trace
+  web/
+    src/
+      App.tsx            Main app layout
+      Sidebar.tsx        File tree + search
+      Inspector.tsx      Symbol inspector (L5)
+      DepsView.tsx       Dependency graph (L3)
+      TraceView.tsx      Execution trace (L4)
+      TracePickerView.tsx Trace entry point picker
+      CodeView.tsx       Read-only source viewer
+      components/
+        BriefView.tsx    L0: repository brief
+        ContextView.tsx  L1: system context
+        OverviewView.tsx L2: component overview
+        SettingsModal.tsx Settings UI
+```
+
 ## Development
 
 ```bash
-npm install          # server deps (+ pyright bundled for Python support)
+# install deps
+npm install
 cd web && npm install && cd ..
-npm run build        # compile server (dist/) + frontend (dist/web/)
-npm test             # vitest suite incl. live pyright integration test
-npm run dev          # watch mode for the server
+
+# build everything (server + frontend)
+npm run build
+
+# start the server
+npm start
+
+# or run in dev mode (hot reload)
+npm run dev
+
+# frontend dev server (proxies /api to backend)
+cd web && npm run dev
 ```
 
-Frontend dev server with hot reload:
+## Contributing
 
-```bash
-cd web && npm run dev     # proxies /api to the backend port
-```
+Archi is open source (MIT). Contributions welcome.
 
-## Architecture
+1. Fork the repo
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Make your changes
+4. Run `npm run build` to verify
+5. Open a PR
 
-See [specs.md](./specs.md) for the full product/technical specification.
+**Adding a new language:**
 
-```text
-CLI (bin/archi) ── Fastify server
-                     ├── Indexer: FileWalker · TsEngine · PyEngine(LSP) · GraphStore
-                     ├── REST API (/api/repos/:id/…)
-                     └── Static React app (React Flow + elkjs + Monaco)
-```
+1. Add a tree-sitter grammar to `src/index/treeSitterEngine.ts`:
+   - Add a `LANGUAGES` entry with `symbolTypes`, `importType`, `callTypes`, `kindFromNode`
+   - Add file extension mappings to `EXT_LANG`
+2. If the language has popular frameworks, add entries to `SYSTEM_SIGNATURES` in `src/index/context.ts`
+3. Test against a real project in that language
 
-In-memory index; `node_modules`, `.venv`, `dist`, `.git`, etc. are skipped; `.gitignore` is respected.
+**Adding framework awareness:**
 
-## Known MVP limits
+Add entries to `SYSTEM_SIGNATURES` in `src/index/context.ts`. Each entry maps a package name to its known symbols (classes, functions, constants). This enables Archi to recognize framework calls even when the framework source isn't indexed.
 
-- No live watching — re-index manually after changes.
-- Dynamic dispatch (`obj.method()` where the type is `any`) is intentionally not resolved.
-- Very large repos (>100k LOC) may take a while to index and use significant memory.
+## License
+
+MIT

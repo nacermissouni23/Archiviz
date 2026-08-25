@@ -24,7 +24,10 @@
   "dependencies": {
     "@fastify/static": "^7.0.4",
     "fastify": "^4.28.1",
-    "typescript": "^5.9.3"
+    "pyright": "^1.1.403",
+    "tree-sitter-wasms": "^0.1.13",
+    "typescript": "^5.9.3",
+    "web-tree-sitter": "^0.24.7"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",

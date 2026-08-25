@@ -13,6 +13,10 @@ import { buildOverview, annotateOverview, type OverviewData } from './index/over
 import { buildContext, annotateContext, type ContextData } from './index/context.js';
 import { buildBrief } from './index/brief.js';
 import { buildStory, annotateStory, type StoryData } from './index/narrative.js';
+import { loadManifests } from './index/manifests.js';
+import { indexPython } from './index/pyEngine.js';
+import { indexGo } from './index/goEngine.js';
+import { indexTreeSitter, getTreeSitterLang } from './index/treeSitterEngine.js';
 import { traceCallChain, findEntryPoints } from './index/trace.js';
 import type { TreeNode } from './types.js';
 
@@ -267,7 +271,45 @@ async function main() {
 
   function reindex() {
     return walkDir(target).then(async (tree) => {
-      indexRepo(target, flatten(tree), store);
+      const files = flatten(tree);
+      indexRepo(target, files, store);
+      loadManifests(target, files, store);
+      const pyFiles = files.filter((f) => f.endsWith('.py'));
+      if (pyFiles.length > 0) {
+        try {
+          const py = await indexPython(target, pyFiles, store);
+          console.log(`  python: ${JSON.stringify(py)}`);
+        } catch (e) {
+          console.warn(`  python engine skipped — ${String(e)}`);
+        }
+      }
+      const goFiles = files.filter((f) => f.endsWith('.go'));
+      if (goFiles.length > 0) {
+        try {
+          const go = await indexGo(target, goFiles, store);
+          console.log(`  go: ${JSON.stringify(go)}`);
+        } catch (e) {
+          console.warn(`  go engine skipped — ${String(e)}`);
+        }
+      }
+      // tree-sitter: index remaining languages not covered by TS/Python/Go LSPs
+      const treeSitterLangs = new Set<string>();
+      const treeSitterFiles = files.filter((f) => {
+        const lang = getTreeSitterLang(f);
+        if (!lang) return false;
+        // skip languages already handled by dedicated LSP engines
+        if (lang === 'python' || lang === 'go' || lang === 'typescript' || lang === 'javascript') return false;
+        treeSitterLangs.add(lang);
+        return true;
+      });
+      if (treeSitterFiles.length > 0) {
+        try {
+          const ts = await indexTreeSitter(target, treeSitterFiles, store);
+          console.log(`  tree-sitter[${[...treeSitterLangs].join(',')}]: ${JSON.stringify(ts)}`);
+        } catch (e) {
+          console.warn(`  tree-sitter engine skipped — ${String(e)}`);
+        }
+      }
       indexedFingerprint = await fingerprint(target);
       rebuildOverview();
       rebuildContext();

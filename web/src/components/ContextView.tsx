@@ -160,8 +160,11 @@ export default function ContextView({
                   </span>
                 </div>
                 <div className="ov-info-meta">{sys.kind}</div>
-                {(sys.importFiles.length > 0 || sys.envVars.length > 0) && (
+                {(sys.importFiles.length > 0 || sys.envVars.length > 0 || sys.declaredIn) && (
                   <div className="insp-section-title">Detected because</div>
+                )}
+                {sys.declaredIn && (
+                  <div className="ov-info-meta">declared in {sys.declaredIn}</div>
                 )}
                 {sys.importFiles.map((f) => (
                   <div key={f} className="ov-info-row file-link" onClick={() => openFileFrom(f)}>

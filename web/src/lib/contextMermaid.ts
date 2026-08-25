@@ -7,6 +7,7 @@ export interface ContextSystem {
   importFiles: string[];
   envVars: string[];
   usedBy: string[];
+  declaredIn?: string;
 }
 
 export interface ContextActor {
