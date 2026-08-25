@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Layers, X, RefreshCw, Network, Activity, Globe2, Settings } from 'lucide-react';
+import { Layers, X, RefreshCw, Network, Activity, Globe2, Settings, BookOpen } from 'lucide-react';
 import Sidebar from './Sidebar';
 import CodeView from './CodeView';
 import Inspector from './Inspector';
 import DepsView from './DepsView';
 import OverviewView from './components/OverviewView';
 import ContextView from './components/ContextView';
+import BriefView from './components/BriefView';
 import TraceView from './TraceView';
 import SettingsModal from './components/SettingsModal';
 import FileIconFor from './components/FileIcon';
@@ -16,6 +17,7 @@ const LANG_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 export const OVERVIEW_PATH = '@overview';
 export const TRACE_PREFIX = '@trace:';
 export const CONTEXT_PATH = '@context';
+export const BRIEF_PATH = '@brief';
 
 export default function App() {
   const [repo, setRepo] = useState<RepoInfo | null>(null);
@@ -53,15 +55,15 @@ export default function App() {
     restored.current = true;
   }, []);
 
-  // L1: open System Context by default on a fresh session (no restored tabs)
+  // L0: open Repository Brief by default on a fresh session (no restored tabs)
   useEffect(() => {
     if (!restored.current) return;
     if (!restoredEmpty.current) return;
-    if (sessionStorage.getItem('archi-ctx-done')) return;
-    sessionStorage.setItem('archi-ctx-done', '1');
-    const ctxNode = { name: 'Context', path: CONTEXT_PATH, type: 'file' as const, ext: '' };
-    setTabs([ctxNode]);
-    setOpenFile(ctxNode);
+    if (sessionStorage.getItem('archi-brief-done')) return;
+    sessionStorage.setItem('archi-brief-done', '1');
+    const briefNode = { name: 'Brief', path: BRIEF_PATH, type: 'file' as const, ext: '' };
+    setTabs([briefNode]);
+    setOpenFile(briefNode);
   }, []);
 
   useEffect(() => {
@@ -218,28 +220,17 @@ export default function App() {
         )}
         <div className="titlebar-spacer" />
         <button
-          className={`icon-btn${hasAiKey ? ' ai-on' : ''}`}
-          title={hasAiKey ? 'AI annotations enabled' : 'Add AI API key'}
-          onClick={() => setShowSettings(true)}
-        >
-          <Settings size={15} strokeWidth={1.8} />
-        </button>
-        <button
-          className={`icon-btn${openFile?.path === OVERVIEW_PATH ? ' ov-active' : ''}`}
-          title="Component overview"
+          className={`tb-btn${openFile?.path === BRIEF_PATH ? ' active' : ''}`}
+          title="Repository brief"
           onClick={() =>
-            openInTab({
-              name: 'Overview',
-              path: OVERVIEW_PATH,
-              type: 'file',
-              ext: '',
-            })
+            openInTab({ name: 'Brief', path: BRIEF_PATH, type: 'file', ext: '' })
           }
         >
-          <Network size={15} strokeWidth={1.8} />
+          <BookOpen size={14} strokeWidth={1.8} />
+          <span>Brief</span>
         </button>
         <button
-          className={`icon-btn${openFile?.path === CONTEXT_PATH ? ' ov-active' : ''}`}
+          className={`tb-btn${openFile?.path === CONTEXT_PATH ? ' active' : ''}`}
           title="System context"
           onClick={() =>
             openInTab({
@@ -250,18 +241,40 @@ export default function App() {
             })
           }
         >
-          <Globe2 size={15} strokeWidth={1.8} />
+          <Globe2 size={14} strokeWidth={1.8} />
+          <span>Overview</span>
         </button>
-        <span className={`fresh-label ${fresh ? 'ok' : 'stale'}`}>
-          {fresh ? 'Up to date' : 'Click to update'}
-        </span>
         <button
-          className={`icon-btn refresh-btn${fresh ? ' fresh' : ' stale'}`}
+          className={`tb-btn${openFile?.path === OVERVIEW_PATH ? ' active' : ''}`}
+          title="Component overview"
+          onClick={() =>
+            openInTab({
+              name: 'Overview',
+              path: OVERVIEW_PATH,
+              type: 'file',
+              ext: '',
+            })
+          }
+        >
+          <Network size={14} strokeWidth={1.8} />
+          <span>Components</span>
+        </button>
+        <button
+          className={`tb-btn${hasAiKey ? ' ai-on' : ''}`}
+          title={hasAiKey ? 'AI annotations enabled' : 'Add AI API key'}
+          onClick={() => setShowSettings(true)}
+        >
+          <Settings size={14} strokeWidth={1.8} />
+          <span>AI</span>
+        </button>
+        <button
+          className={`tb-btn refresh-pill${fresh ? ' fresh' : ' stale'}`}
           title={fresh ? 'Index up to date' : 'Files changed — click to re-index'}
           onClick={refreshIndex}
           disabled={refreshing}
         >
-          <RefreshCw size={15} strokeWidth={1.8} />
+          <RefreshCw size={13} strokeWidth={1.8} className={refreshing ? 'spin' : ''} />
+          <span className="fresh-label">{fresh ? 'Up to date' : 'Click to update'}</span>
         </button>
       </div>
 
@@ -288,7 +301,9 @@ export default function App() {
                       className={`tab${openFile?.path === t.path ? ' active' : ''}`}
                       onClick={() => setOpenFile(t)}
                     >
-                      {t.path === OVERVIEW_PATH ? (
+                      {t.path === BRIEF_PATH ? (
+                        <BookOpen size={13} strokeWidth={2} />
+                      ) : t.path === OVERVIEW_PATH ? (
                         <Network size={13} strokeWidth={2} />
                       ) : t.path === CONTEXT_PATH ? (
                         <Globe2 size={13} strokeWidth={2} />
@@ -332,7 +347,20 @@ export default function App() {
                   </button>
                 </div>
               )}
-              {openFile?.path === OVERVIEW_PATH ? (
+              {openFile?.path === BRIEF_PATH ? (
+                <BriefView
+                  key={`brief-${dataTick}`}
+                  repoName={repo?.name ?? ''}
+                  onOpenFile={openPath}
+                  onOpenOverview={() =>
+                    openInTab({ name: 'Overview', path: OVERVIEW_PATH, type: 'file', ext: '' })
+                  }
+                  onOpenTrace={openTrace}
+                  onOpenContext={() =>
+                    openInTab({ name: 'Context', path: CONTEXT_PATH, type: 'file', ext: '' })
+                  }
+                />
+              ) : openFile?.path === OVERVIEW_PATH ? (
                 <OverviewView
                   key={`ov-${dataTick}`}
                   repoName={repo?.name ?? ''}

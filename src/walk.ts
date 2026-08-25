@@ -8,11 +8,6 @@ const IGNORED_DIRS = new Set([
   '.next', '.cache', 'coverage',
 ]);
 
-const INDEXED_EXTS = new Set([
-  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py',
-  '.json', '.md', '.html', '.css', '.yml', '.yaml', '.toml',
-]);
-
 async function readGitignore(dir: string): Promise<string[]> {
   try {
     const raw = await fs.readFile(path.join(dir, '.gitignore'), 'utf8');
@@ -58,8 +53,8 @@ export async function walkDir(root: string): Promise<TreeNode> {
         if (children.length === 0) continue;
         nodes.push({ name: entry.name, path: rel, type: 'dir', children });
       } else if (entry.isFile()) {
+        // show every file in the tree, even ones we can't render (videos, images, ...)
         const ext = path.extname(entry.name).toLowerCase();
-        if (!INDEXED_EXTS.has(ext)) continue;
         if (matchesIgnore(rel, localIgnores)) continue;
         nodes.push({ name: entry.name, path: rel, type: 'file', ext });
       }

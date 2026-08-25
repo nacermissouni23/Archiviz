@@ -14,62 +14,57 @@ function esc(s: string): string {
   return s.replace(/"/g, '#quot;').replace(/[\r\n]+/g, ' ');
 }
 
-function dedupe<T>(arr: T[]): T[] {
-  return [...new Set(arr)];
-}
-
 export function traceToMermaid(data: TraceResponse): string {
   const lines: string[] = ['sequenceDiagram'];
 
-  // collect all files involved
-  const allFiles = [data.entry.fileId];
+  // distinct files in order of appearance
+  const fileOrder: string[] = [];
+  const seen = new Set<string>();
+  const addFile = (f: string) => {
+    if (!seen.has(f)) {
+      seen.add(f);
+      fileOrder.push(f);
+    }
+  };
+  addFile(data.entry.fileId);
   for (const s of data.steps) {
-    allFiles.push(s.from.fileId, s.to.fileId);
-  }
-  const distinctFiles = dedupe(allFiles);
-
-  // if >6 files, fall back to top-level folders to prevent width explosion
-  const useFolders = distinctFiles.length > 6;
-  const fileToParticipant = new Map<string, string>();
-  const participantIds = new Set<string>();
-
-  function participantId(fileId: string): string {
-    if (useFolders) {
-      const folder = fileId.includes('/') ? fileId.split('/')[0] : '(root)';
-      if (!fileToParticipant.has(fileId)) fileToParticipant.set(fileId, folder);
-      return folder;
-    }
-    if (!fileToParticipant.has(fileId)) {
-      fileToParticipant.set(fileId, fileId);
-    }
-    return fileId;
+    addFile(s.from.fileId);
+    addFile(s.to.fileId);
   }
 
-  // build participants in order of appearance
-  for (const f of allFiles) {
-    const pid = participantId(f);
-    if (!participantIds.has(pid)) {
-      participantIds.add(pid);
-    }
+  // participant id = p<index>; label = basename, disambiguated by parent folder on collision
+  const nameCount = new Map<string, number>();
+  for (const f of fileOrder) {
+    const base = f.split('/').pop() ?? f;
+    nameCount.set(base, (nameCount.get(base) ?? 0) + 1);
   }
+  const usedLabels = new Map<string, string>(); // fileId -> final label
+  for (const f of fileOrder) {
+    const base = f.split('/').pop() ?? f;
+    let label = base;
+    if ((nameCount.get(base) ?? 0) > 1) {
+      const parts = f.split('/');
+      const parent = parts.length > 1 ? parts[parts.length - 2] : '(root)';
+      label = `${parent}/${base}`;
+    }
+    usedLabels.set(f, label);
+  }
+
+  const pidOf = (fileId: string): string => `p${fileOrder.indexOf(fileId)}`;
 
   // declare participants
-  const pidArray = [...participantIds];
-  for (const pid of pidArray) {
-    const label = useFolders ? pid : pid.split('/').pop()!;
-    lines.push(`  participant ${esc(pid)} as ${esc(label)}`);
-  }
+  fileOrder.forEach((f, i) => {
+    lines.push(`  participant p${i} as ${esc(usedLabels.get(f) ?? f)}`);
+  });
 
   // entry note
-  const entryPid = participantId(data.entry.fileId);
-  lines.push(`  Note over ${esc(entryPid)}: ${esc(data.entry.name)}()`);
+  lines.push(`  Note over ${pidOf(data.entry.fileId)}: ${esc(data.entry.name)}()`);
 
   // steps
   for (const step of data.steps) {
-    const fromPid = participantId(step.from.fileId);
-    const toPid = participantId(step.to.fileId);
-    const label = esc(step.callLabel);
-    lines.push(`  ${esc(fromPid)}->>${esc(toPid)}: ${label}`);
+    lines.push(
+      `  ${pidOf(step.from.fileId)}->>${pidOf(step.to.fileId)}: ${esc(step.callLabel)}`
+    );
   }
 
   return lines.join('\n');

@@ -82,6 +82,7 @@ export interface ContextSystem {
   kind: SystemKind;
   label: string;
   relation: string;
+  confidence: 'high' | 'medium';
   importFiles: string[];
   envVars: string[];
   usedBy: string[];
@@ -221,6 +222,7 @@ export function buildContext(store: GraphStore, rootName: string, rootPath: stri
         kind,
         label: LABEL_OVERRIDES[name] ?? prettyPkg(name),
         relation: KIND_REL[kind],
+        confidence: 'high',
         importFiles,
         envVars,
         usedBy: users.slice(0, 20),
@@ -228,6 +230,37 @@ export function buildContext(store: GraphStore, rootName: string, rootPath: stri
     } else {
       libraries.push({ name, count });
     }
+  }
+
+  // env-only systems: strong env tokens with no matching import → medium confidence
+  const ENV_ONLY: [RegExp, string, SystemKind][] = [
+    [/^MONGO/, 'mongodb', 'database'],
+    [/^REDIS/, 'redis', 'database'],
+    [/^POSTGRES/, 'pg', 'database'],
+    [/^PGDATABASE|^PGHOST|^PGUSER/, 'pg', 'database'],
+    [/^MYSQL/, 'mysql2', 'database'],
+    [/^S3_|^AWS_S3/, '@aws-sdk/client-s3', 'cloud'],
+    [/^KAFKA/, 'kafkajs', 'queue'],
+    [/^RABBIT|^AMQP/, 'amqplib', 'queue'],
+    [/^SMTP|^MAIL_HOST/, 'nodemailer', 'email'],
+    [/^STRIPE/, 'stripe', 'api'],
+    [/^OPENAI/, 'openai', 'api'],
+    [/^ELASTIC/, '@elastic/elasticsearch', 'search'],
+  ];
+  for (const [re, pkg, kind] of ENV_ONLY) {
+    if (systems.some((s) => s.name === pkg)) continue;
+    const vars = [...store.envVars.keys()].filter((v) => re.test(v)).slice(0, 4);
+    if (vars.length === 0) continue;
+    systems.push({
+      name: pkg,
+      kind,
+      label: LABEL_OVERRIDES[pkg] ?? prettyPkg(pkg),
+      relation: KIND_REL[kind],
+      confidence: 'medium',
+      importFiles: [],
+      envVars: vars,
+      usedBy: [],
+    });
   }
 
   const s = store.stats();
@@ -250,6 +283,9 @@ function extractionText(text: string): string {
   return t;
 }
 
+const GENERIC_ROLES =
+  /^(ui |web |build |test |dev )?(library|framework|plugin|package|tool|module|util(ity)?|wrapper|sdk|binding)s?$/i;
+
 export async function annotateContext(
   data: ContextData,
   apiKey: string,
@@ -266,6 +302,7 @@ export async function annotateContext(
     '- The app identity comes ONLY from the folder names and evidence given. Do not invent features.',
     '- system/actor labels must describe WHAT the thing is (e.g. "PostgreSQL database", "Browser clients"). Never repeat the raw id/name as the label.',
     '- Use ONLY the system names, actor ids and library names given. Never add entries.',
+    '- libraries roles must be SPECIFIC: "Mermaid diagram renderer", "React UI framework" — never bare "library" or "UI library".',
     '- app.description max 20 words.',
     '',
     JSON.stringify({
@@ -342,7 +379,8 @@ export async function annotateContext(
         typeof l?.name === 'string' &&
         typeof l?.role === 'string' &&
         libNames.has(l.name) &&
-        l.role.trim().toLowerCase() !== l.name.toLowerCase()
+        l.role.trim().toLowerCase() !== l.name.toLowerCase() &&
+        !GENERIC_ROLES.test(l.role.trim())
       ) {
         annotations.libraries[l.name] = l.role.slice(0, 40);
       }

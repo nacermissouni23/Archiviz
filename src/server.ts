@@ -11,6 +11,8 @@ import { GraphStore } from './index/store.js';
 import { indexRepo } from './index/tsIndexer.js';
 import { buildOverview, annotateOverview, type OverviewData } from './index/overview.js';
 import { buildContext, annotateContext, type ContextData } from './index/context.js';
+import { buildBrief } from './index/brief.js';
+import { buildStory, annotateStory, type StoryData } from './index/narrative.js';
 import { traceCallChain, findEntryPoints } from './index/trace.js';
 import type { TreeNode } from './types.js';
 
@@ -122,6 +124,10 @@ async function main() {
       contextData.ai = { pending: true, applied: false };
       ctxAiPromise = runContextAnnotation().then(() => { ctxAiPromise = null; });
     }
+    if (storyData) {
+      storyData.ai = { pending: true, applied: false };
+      runStoryAnnotation().then(() => {});
+    }
     return { ok: true };
   });
 
@@ -219,12 +225,53 @@ async function main() {
     ctxAiPromise = runContextAnnotation().then(() => { ctxAiPromise = null; });
   }
 
+  // ---- How it works narrative ----
+  let storyData: StoryData | null = null;
+
+  async function runStoryAnnotation(attempt = 0) {
+    const apiKey = getApiKey();
+    if (!apiKey || !storyData) return;
+    const model = process.env.ARCHI_AI_MODEL || 'gemini-flash-lite-latest';
+    try {
+      const allowed = {
+        files: new Set([...store.nodes.values()].filter((n) => n.type === 'file').map((n) => n.id)),
+        components: new Set(storyData.skeleton.components.map((c) => c.id)),
+        systems: new Set(storyData.skeleton.systems.map((s) => s.name)),
+        actors: new Set(['cli', 'http', 'webhook', 'cron']),
+      };
+      const segments = await annotateStory(storyData.skeleton, allowed, apiKey, model);
+      if (storyData && segments) {
+        storyData.segments = segments;
+        storyData.ai = { pending: false, applied: true };
+        console.log('  story: AI narrative applied');
+      }
+    } catch (e) {
+      if (attempt < 1) {
+        console.warn('  story: AI pass failed, retrying once in 8s —', String(e));
+        await new Promise((r) => setTimeout(r, 8000));
+        return runStoryAnnotation(attempt + 1);
+      }
+      if (storyData) storyData.ai = { pending: false, applied: false };
+      console.warn('  story: AI narrative failed, keeping template —', String(e));
+    }
+  }
+
+  function rebuildStory() {
+    storyData = buildStory(store, rootName, target, overview, contextData);
+    const hasKey = Boolean(getApiKey());
+    storyData.ai = { pending: hasKey, applied: false };
+    if (hasKey) {
+      runStoryAnnotation().then(() => {});
+    }
+  }
+
   function reindex() {
     return walkDir(target).then(async (tree) => {
       indexRepo(target, flatten(tree), store);
       indexedFingerprint = await fingerprint(target);
       rebuildOverview();
       rebuildContext();
+      rebuildStory();
       console.log(`  indexed: ${JSON.stringify(store.stats())}`);
     });
   }
@@ -241,6 +288,16 @@ async function main() {
   // ---- L1: system context ----
   app.get('/api/context', async () => {
     return contextData ?? { name: rootName, stats: store.stats(), internals: [], externals: [], ai: { pending: false, applied: false } };
+  });
+
+  // ---- L0: repository brief ----
+  app.get('/api/brief', async () => {
+    return buildBrief(store, rootName, target, overview, contextData);
+  });
+
+  // ---- How it works narrative ----
+  app.get('/api/story', async () => {
+    return storyData ?? { segments: [], skeleton: {}, ai: { pending: false, applied: false } };
   });
 
   app.get('/api/index/fresh', async () => {

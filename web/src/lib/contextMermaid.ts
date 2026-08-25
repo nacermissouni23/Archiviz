@@ -3,6 +3,7 @@ export interface ContextSystem {
   kind: string;
   label: string;
   relation: string;
+  confidence: 'high' | 'medium';
   importFiles: string[];
   envVars: string[];
   usedBy: string[];

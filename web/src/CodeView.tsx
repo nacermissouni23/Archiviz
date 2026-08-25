@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { marked } from 'marked';
+import { FileQuestion } from 'lucide-react';
 
 interface Sym {
   id: string;
@@ -9,6 +10,11 @@ interface Sym {
   startLine: number;
   endLine: number;
 }
+
+const READABLE_EXTS = new Set([
+  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py',
+  '.json', '.md', '.txt', '.html', '.css', '.yml', '.yaml', '.toml',
+]);
 
 export default function CodeView({
   filePath,
@@ -26,8 +32,10 @@ export default function CodeView({
   const [error, setError] = useState<string | null>(null);
 
   const isMarkdown = ext === '.md';
+  const readable = READABLE_EXTS.has((ext ?? '').toLowerCase());
 
   useEffect(() => {
+    if (!readable) return;
     setContent(null);
     setError(null);
     setSymbols([]);
@@ -45,6 +53,32 @@ export default function CodeView({
         .catch(() => {});
     }
   }, [filePath]);
+
+  if (!readable)
+    return (
+      <>
+        <div className="code-header">
+          <div className="code-breadcrumb">
+            {filePath.split('/').map((seg, i, arr) => (
+              <span key={i}>
+                {i > 0 && <span className="sep">&nbsp;/&nbsp;</span>}
+                <span className={i === arr.length - 1 ? 'current' : ''}>{seg}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="center-empty">
+          <div className="empty-card">
+            <FileQuestion size={28} strokeWidth={1.5} style={{ color: 'var(--text-3)', marginBottom: 12 }} />
+            <div className="empty-title">No preview available</div>
+            <div className="empty-desc">
+              Archi indexes the structure of <code>.{ext ?? '?'}</code> files but can't render
+              their contents. The file is part of the tree and watched for changes.
+            </div>
+          </div>
+        </div>
+      </>
+    );
 
   if (error)
     return (

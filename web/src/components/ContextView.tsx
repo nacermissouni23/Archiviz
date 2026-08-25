@@ -147,6 +147,17 @@ export default function ContextView({
                 </button>
                 <div className="ov-info-title">
                   {ctx.annotations?.systems?.[sys.name] ?? sys.label}
+                  <span
+                    className={`conf conf-${sys.confidence}`}
+                    style={{ marginLeft: 8, verticalAlign: 'middle' }}
+                    title={
+                      sys.confidence === 'high'
+                        ? 'Imported in indexed code'
+                        : 'Inferred from environment variables only'
+                    }
+                  >
+                    {sys.confidence === 'high' ? 'HIGH' : 'MED'}
+                  </span>
                 </div>
                 <div className="ov-info-meta">{sys.kind}</div>
                 {(sys.importFiles.length > 0 || sys.envVars.length > 0) && (
@@ -209,8 +220,8 @@ export default function ContextView({
                 <div className="ov-info-title">Libraries ({ctx.libraries.length})</div>
                 {ctx.libraries.map((l) => (
                   <div key={l.name} className="ov-info-row" style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                      {ctx.annotations?.libraries?.[l.name] ?? l.name}
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }} title={ctx.annotations?.libraries?.[l.name]}>
+                      {l.name}
                     </span>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-3)' }}>
                       {l.count}
