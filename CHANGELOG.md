@@ -2,6 +2,11 @@
 
 All notable changes to Archiviz.
 
+## [0.1.1] - 2026-08-27
+### Added
+- Repository, homepage, bugs links for npm → GitHub package linking
+- Keywords for npm discoverability
+
 ## [0.1.0] - 2026-08-27
 
 ### Added
