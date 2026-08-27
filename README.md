@@ -169,6 +169,13 @@ npm run dev
 cd web && npm run dev
 ```
 
+## What's next
+
+- More languages and framework signatures
+- `archiviz --watch` live re-index
+- Export (PNG/SVG, JSON graph)
+- See `CHANGELOG.md` and [GitHub Discussions](https://github.com/nacermissouni23/Archiviz/discussions)
+
 ## Contributing
 
 Archiviz is open source (MIT). Contributions welcome.
