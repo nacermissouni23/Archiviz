@@ -33,9 +33,15 @@ export function folderTitle(comp: string, ann?: CompAnnotations): string {
 
 /** Title for internal subfolder box: "name/ : description" */
 export function subfolderTitle(relPath: string, ann?: CompAnnotations): string {
-  const a = ann?.components[relPath];
+  let a = ann?.components[relPath];
+  if (!a && ann?.components) {
+    const lower = relPath.toLowerCase();
+    for (const [k, v] of Object.entries(ann.components)) {
+      if (k.toLowerCase() === lower || k.toLowerCase().endsWith('/' + lower) || lower.endsWith('/' + k.toLowerCase())) { a = v; break; }
+    }
+  }
   const name = relPath.split('/').pop() + '/';
-  return a?.description ? `${name}: ${a.description}` : name;
+  return a?.description ? `${name}: ${a.description}` : a?.label ? `${name}: ${a.label}` : name;
 }
 
 export function folderToMermaid(

@@ -270,7 +270,7 @@ export function indexRepo(root: string, files: string[], store: GraphStore): voi
       const resolved = ts.resolveModuleName(modSpec, path.join(root, rel), {}, ts.sys)
         .resolvedModule;
       if (!resolved) {
-        // bare specifier that couldn't resolve (no node_modules etc.) — still an external
+        // bare specifier that couldn't resolve (no node_modules etc.) - still an external
         recordExternal(modSpec);
         continue;
       }

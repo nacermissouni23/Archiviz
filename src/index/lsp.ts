@@ -45,7 +45,7 @@ export class LspClient {
       const header = this.buffer.slice(0, headerEnd).toString('utf8');
       const m = header.match(/Content-Length:\s*(\d+)/i);
       if (!m) {
-        // malformed — drop this header block
+        // malformed - drop this header block
         this.buffer = this.buffer.slice(headerEnd + 4);
         continue;
       }
@@ -72,7 +72,7 @@ export class LspClient {
           onNotify(msg.method, msg.params);
         }
       } catch {
-        /* bad json — ignore */
+        /* bad json - ignore */
       }
     }
   }

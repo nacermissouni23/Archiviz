@@ -161,7 +161,7 @@ export default function TracePickerView({
               <ChevronLeft size={13} /> Back
             </button>
             <span className="current">{sym?.name ?? 'Trace'}()</span>
-            <span className="sep">—</span>
+            <span className="sep">-</span>
             <span>{sym?.fileId}</span>
           </div>
         </div>
@@ -213,7 +213,7 @@ export default function TracePickerView({
       <div className="code-header">
         <div className="code-breadcrumb">
           <span className="current">Trace Flow</span>
-          <span className="sep">—</span>
+          <span className="sep">-</span>
           <span>{entries.length} traceable symbols</span>
         </div>
       </div>

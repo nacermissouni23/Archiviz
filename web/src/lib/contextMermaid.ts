@@ -23,7 +23,7 @@ export interface ContextResponse {
   systems: ContextSystem[];
   actors: ContextActor[];
   libraries: { name: string; count: number; role?: string }[];
-  ai: { pending: boolean; applied: boolean };
+  ai: { pending: boolean; applied: boolean; error?: string };
   annotations?: {
     app?: { label?: string; description?: string };
     systems?: Record<string, string>;
@@ -40,7 +40,7 @@ export function appLabel(data: ContextResponse): string {
   const a = data.annotations?.app;
   return a?.description
     ? `${a.label ?? data.name}: ${a.description}`
-    : `${data.name} · ${data.stats.files}f ${data.stats.symbols}s`;
+    : `${data.name} · ${data.stats.files} files, ${data.stats.symbols} symbols`;
 }
 
 /** target key for click round-trip: 'APP' | 'actor:<id>' | 'sys:<name>' */

@@ -11,6 +11,7 @@ import {
   type FolderDepsResponse,
   type CompAnnotations,
 } from '../lib/folderDepsMermaid';
+import DiagramFilter from './DiagramFilter';
 
 type Ann = CompAnnotations | undefined;
 
@@ -26,6 +27,8 @@ export default function OverviewView({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [stack, setStack] = useState<string[]>([]);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState('');
   const dir = stack[stack.length - 1] ?? '';
 
   const { viewportRef, canvasRef, scale, offset, zoomBy, fit, inject, viewportProps } =
@@ -129,17 +132,75 @@ export default function OverviewView({
   const hasGraph =
     dir ? Boolean(folderData && folderData.files.length > 0) : Boolean(overview && overview.components.length > 0);
 
+  // apply diagram filter: dim non-matching SVG nodes
+  const [matchCount, setMatchCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const svgEl = canvas.querySelector('svg');
+    if (!svgEl) return;
+
+    const nodes = svgEl.querySelectorAll('g.node, g.cluster');
+    const edges = svgEl.querySelectorAll('g.edge');
+
+    if (!filterQuery) {
+      nodes.forEach((n) => {
+        (n as HTMLElement).style.opacity = '';
+        (n as HTMLElement).style.transition = '';
+      });
+      edges.forEach((e) => {
+        (e as HTMLElement).style.opacity = '';
+        (e as HTMLElement).style.transition = '';
+      });
+      setMatchCount(0);
+      setTotalCount(0);
+      return;
+    }
+
+    const needle = filterQuery.toLowerCase();
+    let matches = 0;
+
+    const getNodeText = (n: Element): string => {
+      const parts: string[] = [];
+      n.querySelectorAll('text').forEach((t) => parts.push(t.textContent ?? ''));
+      n.querySelectorAll('foreignObject div').forEach((d) => parts.push(d.textContent ?? ''));
+      return parts.join(' ').toLowerCase();
+    };
+
+    nodes.forEach((n) => {
+      const text = getNodeText(n);
+      if (text.includes(needle)) {
+        matches++;
+        (n as HTMLElement).style.opacity = '1';
+      } else {
+        (n as HTMLElement).style.opacity = '0.15';
+      }
+      (n as HTMLElement).style.transition = 'opacity 0.2s';
+    });
+
+    edges.forEach((e) => {
+      (e as HTMLElement).style.opacity = '0.1';
+      (e as HTMLElement).style.transition = 'opacity 0.2s';
+    });
+
+    setMatchCount(matches);
+    setTotalCount(nodes.length);
+  }, [filterQuery, canvasRef]);
+
   return (
     <>
       <div className="code-header">
         <div className="code-breadcrumb">
           <span className="current">
             {repoName}
-            {' — '}
-            {dir ? `${dir} — files & dependencies` : 'Component Overview'}
+            {' - '}
+            {dir ? `${dir} - files & dependencies` : 'Component Overview'}
           </span>
           {!dir && overview?.ai.applied && <span className="ai-badge">AI annotated</span>}
           {overview?.ai.pending && <span className="ai-badge pending">AI annotating…</span>}
+          {!dir && overview?.ai.error && !overview?.ai.pending && !overview?.ai.applied && <span className="ai-badge error" title={overview.ai.error}>AI failed: {overview.ai.error}</span>}
         </div>
       </div>
       {error ? (
@@ -175,12 +236,12 @@ export default function OverviewView({
             </div>
           )}
           <div className="graph-actions">
-            {hasGraph && (
-              <button title="Copy Mermaid" onClick={copyCode}>
-                {copied ? <Check size={14} strokeWidth={2} /> : <Copy size={14} strokeWidth={2} />}
-              </button>
-            )}
             <div className="zoom-controls">
+              {hasGraph && (
+                <button title="Copy Mermaid" onClick={copyCode}>
+                  {copied ? <Check size={14} strokeWidth={2} /> : <Copy size={14} strokeWidth={2} />}
+                </button>
+              )}
               <button title="Zoom in" onClick={() => zoomBy(1.2)}>
                 <Plus size={14} strokeWidth={2} />
               </button>
@@ -191,6 +252,14 @@ export default function OverviewView({
                 <Minus size={14} strokeWidth={2} />
               </button>
               <span className="zoom-label">{Math.round(scale * 100)}%</span>
+              <DiagramFilter
+                open={filterOpen}
+                onToggle={() => { setFilterOpen(!filterOpen); setFilterQuery(''); }}
+                query={filterQuery}
+                onQueryChange={setFilterQuery}
+                matchCount={matchCount}
+                totalCount={totalCount}
+              />
             </div>
           </div>
         </div>

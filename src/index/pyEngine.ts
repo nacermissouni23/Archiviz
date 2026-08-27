@@ -83,7 +83,7 @@ function resolveModule(
     for (let i = 1; i < mod.level && parts.length > 0; i++) parts.pop();
     const dirRel = parts.join('/');
     if (!mod.module) {
-      // from . import sibling — callers resolve names themselves; skip
+      // from . import sibling - callers resolve names themselves; skip
       return null;
     }
     return tryFile(dirRel, mod.module);
@@ -95,7 +95,7 @@ function kindOf(lspKind: number, parent: InternalSym | null, hasChildren: boolea
   if (lspKind === 5) return 'class'; // Class
   if (lspKind === 6) return 'method'; // Method
   if (lspKind === 12) return parent ? 'method' : 'function'; // Function
-  if (hasChildren && lspKind === 2) return null; // Module — skip
+  if (hasChildren && lspKind === 2) return null; // Module - skip
   return null;
 }
 
@@ -120,7 +120,7 @@ export async function indexPython(
     try {
       texts.set(rel, fs.readFileSync(path.join(root, rel), 'utf8'));
     } catch {
-      /* unreadable — skip */
+      /* unreadable - skip */
     }
   }
   const openable = [...texts.keys()];

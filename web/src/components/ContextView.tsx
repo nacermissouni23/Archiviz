@@ -3,6 +3,7 @@ import { Copy, Check, Plus, Minus, Maximize2, X } from 'lucide-react';
 import { useZoomPan } from '../lib/useZoomPan';
 import { renderMermaid, wireNodeClicks } from '../lib/mermaidInit';
 import { contextToMermaid, type ContextResponse } from '../lib/contextMermaid';
+import DiagramFilter from './DiagramFilter';
 
 type Info =
   | { type: 'system'; name: string }
@@ -23,6 +24,10 @@ export default function ContextView({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [info, setInfo] = useState<Info>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState('');
+  const [matchCount, setMatchCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const { viewportRef, canvasRef, scale, offset, zoomBy, fit, inject, viewportProps } =
     useZoomPan();
   const lastCode = useRef('');
@@ -94,22 +99,72 @@ export default function ContextView({
   const sys = info?.type === 'system' ? ctx?.systems.find((s) => s.name === info.name) : undefined;
   const actor = info?.type === 'actor' ? ctx?.actors.find((a) => a.id === info.id) : undefined;
 
+  // apply diagram filter: dim non-matching SVG nodes
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const svgEl = canvas.querySelector('svg');
+    if (!svgEl) return;
+
+    const nodes = svgEl.querySelectorAll('g.node, g.cluster');
+    const edges = svgEl.querySelectorAll('g.edge');
+
+    if (!filterQuery) {
+      nodes.forEach((n) => {
+        (n as HTMLElement).style.opacity = '';
+        (n as HTMLElement).style.transition = '';
+      });
+      edges.forEach((e) => {
+        (e as HTMLElement).style.opacity = '';
+        (e as HTMLElement).style.transition = '';
+      });
+      setMatchCount(0);
+      setTotalCount(0);
+      return;
+    }
+
+    const needle = filterQuery.toLowerCase();
+    let matches = 0;
+
+    const getNodeText = (n: Element): string => {
+      const parts: string[] = [];
+      n.querySelectorAll('text').forEach((t) => parts.push(t.textContent ?? ''));
+      n.querySelectorAll('foreignObject div').forEach((d) => parts.push(d.textContent ?? ''));
+      return parts.join(' ').toLowerCase();
+    };
+
+    nodes.forEach((n) => {
+      const text = getNodeText(n);
+      if (text.includes(needle)) {
+        matches++;
+        (n as HTMLElement).style.opacity = '1';
+      } else {
+        (n as HTMLElement).style.opacity = '0.15';
+      }
+      (n as HTMLElement).style.transition = 'opacity 0.2s';
+    });
+
+    edges.forEach((e) => {
+      (e as HTMLElement).style.opacity = '0.1';
+      (e as HTMLElement).style.transition = 'opacity 0.2s';
+    });
+
+    setMatchCount(matches);
+    setTotalCount(nodes.length);
+  }, [filterQuery, canvasRef]);
+
   const empty = ctx && ctx.stats.files === 0;
 
   return (
     <>
       <div className="code-header">
         <div className="code-breadcrumb">
-          <span className="current">{repoName} — System Context</span>
+          <span className="current">{repoName} - System Context</span>
           {ctx?.ai.applied && <span className="ai-badge">AI annotated</span>}
           {ctx?.ai.pending && <span className="ai-badge pending">AI annotating…</span>}
+          {ctx?.ai.error && !ctx?.ai.pending && !ctx?.ai.applied && <span className="ai-badge error" title={ctx.ai.error}>AI failed: {ctx.ai.error}</span>}
         </div>
         <div className="toolbar-spacer" />
-        {ctx && !empty && (
-          <button className="btn-ghost-small" title="Copy Mermaid" onClick={copyCode}>
-            {copied ? <Check size={14} strokeWidth={2} /> : <Copy size={14} strokeWidth={2} />}
-          </button>
-        )}
       </div>
       {error ? (
         <div className="center-empty">
@@ -235,6 +290,11 @@ export default function ContextView({
             )}
             <div className="graph-actions">
               <div className="zoom-controls">
+                {ctx && !empty && (
+                  <button title="Copy Mermaid" onClick={copyCode}>
+                    {copied ? <Check size={14} strokeWidth={2} /> : <Copy size={14} strokeWidth={2} />}
+                  </button>
+                )}
                 <button title="Zoom in" onClick={() => zoomBy(1.2)}>
                   <Plus size={14} strokeWidth={2} />
                 </button>
@@ -245,6 +305,14 @@ export default function ContextView({
                   <Minus size={14} strokeWidth={2} />
                 </button>
                 <span className="zoom-label">{Math.round(scale * 100)}%</span>
+                <DiagramFilter
+                  open={filterOpen}
+                  onToggle={() => { setFilterOpen(!filterOpen); setFilterQuery(''); }}
+                  query={filterQuery}
+                  onQueryChange={setFilterQuery}
+                  matchCount={matchCount}
+                  totalCount={totalCount}
+                />
               </div>
             </div>
           </div>

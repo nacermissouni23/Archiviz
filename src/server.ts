@@ -9,10 +9,11 @@ import { walkDir } from './walk.js';
 import { parseArgs } from './cli.js';
 import { GraphStore } from './index/store.js';
 import { indexRepo } from './index/tsIndexer.js';
-import { buildOverview, annotateOverview, type OverviewData } from './index/overview.js';
-import { buildContext, annotateContext, type ContextData } from './index/context.js';
+import { buildOverview, type OverviewData } from './index/overview.js';
+import { buildContext, type ContextData } from './index/context.js';
 import { buildBrief } from './index/brief.js';
-import { buildStory, annotateStory, type StoryData } from './index/narrative.js';
+import { buildStory, type StoryData } from './index/narrative.js';
+import { annotateAll } from './index/ai.js';
 import { loadManifests } from './index/manifests.js';
 import { indexPython } from './index/pyEngine.js';
 import { indexGo } from './index/goEngine.js';
@@ -31,7 +32,7 @@ function loadDotEnv() {
       }
     }
   } catch {
-    /* no .env — fine */
+    /* no .env - fine */
   }
 }
 
@@ -93,7 +94,7 @@ async function main() {
       const cfg = JSON.parse(readFileSync(configPath, 'utf8'));
       if (typeof cfg.ARCHI_AI_KEY === 'string' && cfg.ARCHI_AI_KEY) aiKey = cfg.ARCHI_AI_KEY;
     } catch {
-      /* no config — fine */
+      /* no config - fine */
     }
   }
   loadKeyFromConfig();
@@ -109,7 +110,7 @@ async function main() {
         rmSync(configPath, { force: true });
       }
     } catch (e) {
-      console.warn('  config: could not persist key —', String(e));
+      console.warn('  config: could not persist key -', String(e));
     }
   }
 
@@ -119,18 +120,11 @@ async function main() {
     const key = String((req.body as any)?.key ?? '').trim();
     if (!key) return reply.code(400).send({ error: 'missing key' });
     persistKey(key);
-    // re-trigger AI passes on the current index
-    if (overview) {
-      overview.ai = { pending: true, applied: false };
-      aiPromise = runAiAnnotation().then(() => { aiPromise = null; });
-    }
-    if (contextData) {
-      contextData.ai = { pending: true, applied: false };
-      ctxAiPromise = runContextAnnotation().then(() => { ctxAiPromise = null; });
-    }
-    if (storyData) {
-      storyData.ai = { pending: true, applied: false };
-      runStoryAnnotation().then(() => {});
+    if (overview) overview.ai = { pending: true, applied: false };
+    if (contextData) contextData.ai = { pending: true, applied: false };
+    if (storyData) storyData.ai = { pending: true, applied: false };
+    if (overview && contextData && storyData) {
+      aiPromise = runAiAll().then(() => { aiPromise = null; });
     }
     return { ok: true };
   });
@@ -147,94 +141,28 @@ async function main() {
     return tree;
   });
 
-  // ---- L5: symbol index ----
+  // ---- AI: single merged call for overview + context + story (1 credit per indexing) ----
   let overview: OverviewData | null = null;
   let lastAnnotations: import('./index/overview.js').OverviewAnnotations | undefined;
-  let aiPromise: Promise<void> | null = null;
-
-  async function runAiAnnotation(attempt = 0) {
-    const apiKey = getApiKey();
-    if (!apiKey || !overview) return;
-    const model = process.env.ARCHI_AI_MODEL || 'gemini-flash-lite-latest';
-    try {
-      const annotations = await annotateOverview(overview, apiKey, model);
-      if (overview && annotations) {
-        lastAnnotations = annotations;
-        overview.annotations = annotations;
-        overview.ai = { pending: false, applied: true };
-        console.log('  overview: AI annotations applied');
-      }
-    } catch (e) {
-      if (attempt < 1) {
-        console.warn('  overview: AI pass failed, retrying once in 8s —', String(e));
-        await new Promise(r => setTimeout(r, 8000));
-        return runAiAnnotation(attempt + 1);
-      }
-      if (overview) {
-        overview.annotations = lastAnnotations;
-        overview.ai = { pending: false, applied: Boolean(overview.annotations) };
-      }
-      console.warn('  overview: AI annotation failed, using cached/plain labels —', String(e));
-    }
-  }
-
-  function rebuildOverview() {
-    overview = buildOverview(store);
-    if (lastAnnotations) overview.annotations = lastAnnotations;
-    const hasKey = Boolean(getApiKey());
-    overview.ai = { pending: hasKey && !lastAnnotations, applied: Boolean(lastAnnotations) };
-    aiPromise = runAiAnnotation().then(() => { aiPromise = null; });
-  }
-
-  async function waitForAi() {
-    if (aiPromise) await aiPromise;
-  }
-
-  // ---- L1: system context ----
   let contextData: ContextData | null = null;
   let lastContextAnnotations: import('./index/context.js').ContextAnnotations | undefined;
-  let ctxAiPromise: Promise<void> | null = null;
-
-  async function runContextAnnotation(attempt = 0) {
-    const apiKey = getApiKey();
-    if (!apiKey || !contextData) return;
-    const model = process.env.ARCHI_AI_MODEL || 'gemini-flash-lite-latest';
-    try {
-      const annotations = await annotateContext(contextData, apiKey, model);
-      if (contextData && annotations) {
-        lastContextAnnotations = annotations;
-        contextData.annotations = annotations;
-        contextData.ai = { pending: false, applied: true };
-        console.log('  context: AI annotations applied');
-      }
-    } catch (e) {
-      if (attempt < 1) {
-        console.warn('  context: AI pass failed, retrying once in 8s —', String(e));
-        await new Promise((r) => setTimeout(r, 8000));
-        return runContextAnnotation(attempt + 1);
-      }
-      if (contextData) {
-        contextData.annotations = lastContextAnnotations;
-        contextData.ai = { pending: false, applied: Boolean(lastContextAnnotations) };
-      }
-      console.warn('  context: AI annotation failed, using plain labels —', String(e));
-    }
-  }
-
-  function rebuildContext() {
-    contextData = buildContext(store, rootName, target);
-    if (lastContextAnnotations) contextData.annotations = lastContextAnnotations;
-    const hasKey = Boolean(getApiKey());
-    contextData.ai = { pending: hasKey && !lastContextAnnotations, applied: Boolean(lastContextAnnotations) };
-    ctxAiPromise = runContextAnnotation().then(() => { ctxAiPromise = null; });
-  }
-
-  // ---- How it works narrative ----
   let storyData: StoryData | null = null;
+  let aiPromise: Promise<void> | null = null;
 
-  async function runStoryAnnotation(attempt = 0) {
+  function aiErrorMessage(e: unknown): string {
+    const s = String(e);
+    if (s.includes('API_KEY_INVALID') || s.includes('API key') || s.includes('PERMISSION_DENIED')) return 'Invalid API key';
+    if (s.includes('NOT_FOUND') || s.includes('model not found') || s.includes('404')) return 'Model not found';
+    if (s.includes('RESOURCE_EXHAUSTED') || s.includes('429') || s.includes('quota')) return 'Rate limited / quota exceeded';
+    if (s.includes('AbortError') || s.includes('aborted')) return 'Request timed out';
+    if (s.includes('empty annotations')) return 'AI returned empty annotations';
+    if (s.length > 120) return s.slice(0, 120);
+    return s;
+  }
+
+  async function runAiAll(attempt = 0) {
     const apiKey = getApiKey();
-    if (!apiKey || !storyData) return;
+    if (!apiKey || !overview || !contextData || !storyData) return;
     const model = process.env.ARCHI_AI_MODEL || 'gemini-flash-lite-latest';
     try {
       const allowed = {
@@ -243,30 +171,63 @@ async function main() {
         systems: new Set(storyData.skeleton.systems.map((s) => s.name)),
         actors: new Set(['cli', 'http', 'webhook', 'cron']),
       };
-      const segments = await annotateStory(storyData.skeleton, allowed, apiKey, model);
-      if (storyData && segments) {
-        storyData.segments = segments;
-        storyData.ai = { pending: false, applied: true };
-        console.log('  story: AI narrative applied');
-      }
+      const result = await annotateAll(overview, contextData, storyData.skeleton, allowed, apiKey, model);
+      if (!result) throw new Error('AI returned empty result');
+      const hasOv = Object.values(result.overview.components).some(v => v.label || v.description);
+      if (!hasOv) throw new Error('AI returned empty annotations');
+      // apply all three
+      lastAnnotations = result.overview;
+      if (overview) { overview.annotations = result.overview; overview.ai = { pending: false, applied: true }; }
+      lastContextAnnotations = result.context;
+      if (contextData) { contextData.annotations = result.context; contextData.ai = { pending: false, applied: true }; }
+      if (storyData && result.story.length > 0) { storyData.segments = result.story; storyData.ai = { pending: false, applied: true }; }
+      else if (storyData) { storyData.ai = { pending: false, applied: false }; }
+      console.log('  AI: all annotations applied (1 call)');
     } catch (e) {
       if (attempt < 1) {
-        console.warn('  story: AI pass failed, retrying once in 8s —', String(e));
-        await new Promise((r) => setTimeout(r, 8000));
-        return runStoryAnnotation(attempt + 1);
+        console.warn('  AI: pass failed, retrying once in 8s -', String(e));
+        await new Promise(r => setTimeout(r, 8000));
+        return runAiAll(attempt + 1);
       }
-      if (storyData) storyData.ai = { pending: false, applied: false };
-      console.warn('  story: AI narrative failed, keeping template —', String(e));
+      if (overview) {
+        const hasOv = Boolean(lastAnnotations && Object.values(lastAnnotations.components).some(v => v.label || v.description));
+        if (hasOv) overview.annotations = lastAnnotations;
+        overview.ai = { pending: false, applied: hasOv, error: hasOv ? undefined : aiErrorMessage(e) };
+      }
+      if (contextData) {
+        if (lastContextAnnotations) contextData.annotations = lastContextAnnotations;
+        const hasCtx = Boolean(lastContextAnnotations);
+        contextData.ai = { pending: false, applied: hasCtx, error: hasCtx ? undefined : aiErrorMessage(e) };
+      }
+      if (storyData) storyData.ai = { pending: false, applied: false, error: aiErrorMessage(e) };
+      console.warn('  AI: annotation failed, using cached/plain labels -', String(e));
     }
+  }
+
+  function rebuildOverview() {
+    overview = buildOverview(store);
+    const hasOv = Boolean(lastAnnotations && Object.values(lastAnnotations.components).some(v => v.label || v.description));
+    if (hasOv) overview.annotations = lastAnnotations;
+    const hasKey = Boolean(getApiKey());
+    overview.ai = { pending: hasKey && !hasOv, applied: hasOv };
+  }
+
+  function rebuildContext() {
+    contextData = buildContext(store, rootName, target);
+    if (lastContextAnnotations) contextData.annotations = lastContextAnnotations;
+    const hasKey = Boolean(getApiKey());
+    const hasCtx = Boolean(lastContextAnnotations);
+    contextData.ai = { pending: hasKey && !hasCtx, applied: hasCtx };
   }
 
   function rebuildStory() {
     storyData = buildStory(store, rootName, target, overview, contextData);
     const hasKey = Boolean(getApiKey());
     storyData.ai = { pending: hasKey, applied: false };
-    if (hasKey) {
-      runStoryAnnotation().then(() => {});
-    }
+  }
+
+  async function waitForAi() {
+    if (aiPromise) await aiPromise;
   }
 
   function reindex() {
@@ -280,7 +241,7 @@ async function main() {
           const py = await indexPython(target, pyFiles, store);
           console.log(`  python: ${JSON.stringify(py)}`);
         } catch (e) {
-          console.warn(`  python engine skipped — ${String(e)}`);
+          console.warn(`  python engine skipped - ${String(e)}`);
         }
       }
       const goFiles = files.filter((f) => f.endsWith('.go'));
@@ -289,7 +250,7 @@ async function main() {
           const go = await indexGo(target, goFiles, store);
           console.log(`  go: ${JSON.stringify(go)}`);
         } catch (e) {
-          console.warn(`  go engine skipped — ${String(e)}`);
+          console.warn(`  go engine skipped - ${String(e)}`);
         }
       }
       // tree-sitter: index remaining languages not covered by TS/Python/Go LSPs
@@ -307,13 +268,17 @@ async function main() {
           const ts = await indexTreeSitter(target, treeSitterFiles, store);
           console.log(`  tree-sitter[${[...treeSitterLangs].join(',')}]: ${JSON.stringify(ts)}`);
         } catch (e) {
-          console.warn(`  tree-sitter engine skipped — ${String(e)}`);
+          console.warn(`  tree-sitter engine skipped - ${String(e)}`);
         }
       }
       indexedFingerprint = await fingerprint(target);
       rebuildOverview();
       rebuildContext();
       rebuildStory();
+      if (getApiKey() && overview && contextData && storyData) {
+        const needsAi = overview.ai.pending || contextData.ai.pending || storyData.ai.pending;
+        if (needsAi) aiPromise = runAiAll().then(() => { aiPromise = null; });
+      }
       console.log(`  indexed: ${JSON.stringify(store.stats())}`);
     });
   }
@@ -464,7 +429,7 @@ async function main() {
   app.get('/api/search', async (req) => {
     const q = String((req.query as any).q ?? '');
     if (!q.trim()) return { results: [] };
-    return { results: store.searchSymbols(q) };
+    return { results: store.search(q, overview, contextData) };
   });
 
   // ---- L4: execution flow trace ----
@@ -512,7 +477,7 @@ async function main() {
   } catch {
     app.get('/', async (_req, reply) => {
       reply.type('text/html; charset=utf-8').send(
-        '<body style="background:#10141b;color:#e8ebf1;font-family:monospace;padding:40px">Frontend assets missing in this install — reinstall archi, or run <code>npm run build</code> in the repo and use <code>npm start</code>.</body>'
+        '<body style="background:#10141b;color:#e8ebf1;font-family:monospace;padding:40px">Frontend assets missing in this install. Reinstall archi, or run <code>npm run build</code> in the repo and use <code>npm start</code>.</body>'
       );
     });
   }
@@ -540,7 +505,7 @@ async function main() {
   port = bound;
 
   const url = `http://127.0.0.1:${port}`;
-  console.log(`\n  Archi — indexing ${rootName}`);
+  console.log(`\n  Archi - indexing ${rootName}`);
   console.log(`  ${url}\n`);
   if (open) {
     const { exec } = await import('node:child_process');

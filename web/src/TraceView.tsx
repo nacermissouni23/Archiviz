@@ -132,7 +132,7 @@ export default function TraceView({
       <div className="code-header">
         <div className="code-breadcrumb">
           <span className="current">{trace?.entry.name ?? 'Trace'}()</span>
-          <span className="sep">—</span>
+          <span className="sep">-</span>
           <span>{trace?.entry.fileId}</span>
         </div>
       </div>
@@ -162,10 +162,10 @@ export default function TraceView({
             />
           </div>
           <div className="trace-actions">
-            <button title="Copy Mermaid" onClick={copyCode}>
-              {copied ? <Check size={14} strokeWidth={2} /> : <Copy size={14} strokeWidth={2} />}
-            </button>
             <div className="zoom-controls">
+              <button title="Copy Mermaid" onClick={copyCode}>
+                {copied ? <Check size={14} strokeWidth={2} /> : <Copy size={14} strokeWidth={2} />}
+              </button>
               <button title="Zoom in" onClick={() => zoomBy(1.2)}>
                 <Plus size={14} strokeWidth={2} />
               </button>

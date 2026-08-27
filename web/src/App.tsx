@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Layers, X, RefreshCw, Network, Activity, Globe2, Settings, BookOpen } from 'lucide-react';
+import { Layers, X, RefreshCw, Network, Activity, Globe2, Settings, BookOpen, Search } from 'lucide-react';
 import Sidebar from './Sidebar';
 import CodeView from './CodeView';
 import Inspector from './Inspector';
@@ -9,6 +9,7 @@ import ContextView from './components/ContextView';
 import BriefView from './components/BriefView';
 import TraceView from './TraceView';
 import SettingsModal from './components/SettingsModal';
+import SearchModal from './components/SearchModal';
 import FileIconFor from './components/FileIcon';
 import type { RepoInfo, TreeNode } from './types';
 
@@ -34,6 +35,7 @@ export default function App() {
   const [dataTick, setDataTick] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [hasAiKey, setHasAiKey] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const resizing = useRef<'left' | 'right' | null>(null);
   const restored = useRef(false);
   const restoredEmpty = useRef(true);
@@ -203,8 +205,49 @@ export default function App() {
       .then((r) => r.json())
       .then(setRepo)
       .catch(() => setError('Could not reach the archi server.'));
-    refreshIndex();
+    fetch('/api/tree')
+      .then((r) => r.json())
+      .then(setTree)
+      .catch(() => {});
+    fetch('/api/index/fresh')
+      .then((r) => r.json())
+      .then((d) => setFresh(Boolean(d.fresh)))
+      .catch(() => {});
   }, []);
+
+  // Cmd/Ctrl+K opens search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowSearch((s) => !s);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  const handleSearchSelect = (result: { type: string; name: string; id: string; view: string }) => {
+    if (result.view === 'overview') {
+      openInTab({ name: 'Overview', path: OVERVIEW_PATH, type: 'file', ext: '' });
+    } else if (result.view === 'context') {
+      openInTab({ name: 'Context', path: CONTEXT_PATH, type: 'file', ext: '' });
+    } else if (result.view === 'trace') {
+      // symbol: open the file and select it in inspector
+      const colonIdx = result.id.indexOf(':');
+      if (colonIdx > 0) {
+        const fileId = result.id.slice(0, colonIdx);
+        const ext = fileId.slice(fileId.lastIndexOf('.'));
+        openInTab({ name: fileId.split('/').pop() ?? fileId, path: fileId, type: 'file', ext });
+        setSymbolId(result.id);
+      } else {
+        openTrace(result.id, result.name);
+      }
+    } else if (result.view === 'code') {
+      const ext = result.id.slice(result.id.lastIndexOf('.'));
+      openInTab({ name: result.id.split('/').pop() ?? result.id, path: result.id, type: 'file', ext });
+    }
+  };
 
   return (
     <div className="app">
@@ -219,6 +262,14 @@ export default function App() {
           </div>
         )}
         <div className="titlebar-spacer" />
+        <button
+          className="tb-btn search-trigger"
+          title="Search (Ctrl+K)"
+          onClick={() => setShowSearch(true)}
+        >
+          <Search size={14} strokeWidth={1.8} />
+          <span>Search</span>
+        </button>
         <button
           className={`tb-btn${openFile?.path === BRIEF_PATH ? ' active' : ''}`}
           title="Repository brief"
@@ -242,7 +293,7 @@ export default function App() {
           }
         >
           <Globe2 size={14} strokeWidth={1.8} />
-          <span>Overview</span>
+          <span>Context</span>
         </button>
         <button
           className={`tb-btn${openFile?.path === OVERVIEW_PATH ? ' active' : ''}`}
@@ -269,7 +320,7 @@ export default function App() {
         </button>
         <button
           className={`tb-btn refresh-pill${fresh ? ' fresh' : ' stale'}`}
-          title={fresh ? 'Index up to date' : 'Files changed — click to re-index'}
+          title={fresh ? 'Index up to date' : 'Files changed, click to re-index'}
           onClick={refreshIndex}
           disabled={refreshing}
         >
@@ -424,6 +475,11 @@ export default function App() {
             onSaved={() => setDataTick((n) => n + 1)}
           />
         )}
+        <SearchModal
+          open={showSearch}
+          onClose={() => setShowSearch(false)}
+          onSelect={handleSearchSelect}
+        />
       </div>
     </div>
   );

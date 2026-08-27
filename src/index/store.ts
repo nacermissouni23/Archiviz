@@ -12,6 +12,14 @@ export interface Sym {
   async?: boolean;
 }
 
+export interface SearchResult {
+  type: 'component' | 'system' | 'library' | 'symbol' | 'file';
+  name: string;
+  detail: string;
+  id: string;
+  view: 'overview' | 'context' | 'trace' | 'code';
+}
+
 export type EdgeType = 'contains' | 'imports' | 'calls';
 
 export interface Edge {
@@ -140,6 +148,97 @@ export class GraphStore {
       }
     }
     return hits;
+  }
+
+  search(q: string, overview?: any, context?: any): SearchResult[] {
+    const needle = q.toLowerCase();
+    if (!needle) return [];
+    const results: SearchResult[] = [];
+    const seen = new Set<string>();
+
+    // components (from overview)
+    if (overview?.components) {
+      for (const c of overview.components) {
+        const label = c.name;
+        if (label.toLowerCase().includes(needle)) {
+          const id = `comp:${c.id}`;
+          if (!seen.has(id)) {
+            seen.add(id);
+            results.push({ type: 'component', name: label, detail: `${c.fileCount} files, ${c.symbolCount} symbols`, id: c.id, view: 'overview' });
+          }
+        }
+      }
+    }
+
+    // systems (from context)
+    if (context?.systems) {
+      for (const s of context.systems) {
+        const label = s.label || s.name;
+        if (label.toLowerCase().includes(needle) || s.name.toLowerCase().includes(needle)) {
+          const id = `sys:${s.name}`;
+          if (!seen.has(id)) {
+            seen.add(id);
+            results.push({ type: 'system', name: label, detail: s.kind, id: s.name, view: 'context' });
+          }
+        }
+      }
+    }
+
+    // actors (from context)
+    if (context?.actors) {
+      for (const a of context.actors) {
+        const label = a.label;
+        if (label.toLowerCase().includes(needle)) {
+          const id = `actor:${a.id}`;
+          if (!seen.has(id)) {
+            seen.add(id);
+            results.push({ type: 'system', name: label, detail: 'actor', id: a.id, view: 'context' });
+          }
+        }
+      }
+    }
+
+    // libraries (from context)
+    if (context?.libraries) {
+      for (const l of context.libraries) {
+        if (l.name.toLowerCase().includes(needle)) {
+          const id = `lib:${l.name}`;
+          if (!seen.has(id)) {
+            seen.add(id);
+            results.push({ type: 'library', name: l.name, detail: l.role ?? '', id: l.name, view: 'context' });
+          }
+        }
+      }
+    }
+
+    // symbols
+    for (const node of this.nodes.values()) {
+      if (node.type !== 'symbol' || !node.sym) continue;
+      if (node.sym.name.toLowerCase().includes(needle)) {
+        const id = node.sym.id;
+        if (!seen.has(id)) {
+          seen.add(id);
+          results.push({ type: 'symbol', name: node.sym.name, detail: `${node.sym.kind} in ${node.sym.fileId}`, id: node.sym.id, view: 'trace' });
+        }
+      }
+      if (results.length >= 40) break;
+    }
+
+    // files
+    for (const node of this.nodes.values()) {
+      if (node.type !== 'file') continue;
+      const name = node.id.split('/').pop() ?? node.id;
+      if (name.toLowerCase().includes(needle) || node.id.toLowerCase().includes(needle)) {
+        const id = node.id;
+        if (!seen.has(id)) {
+          seen.add(id);
+          results.push({ type: 'file', name: node.id, detail: '', id: node.id, view: 'code' });
+        }
+      }
+      if (results.length >= 50) break;
+    }
+
+    return results;
   }
 
   stats() {

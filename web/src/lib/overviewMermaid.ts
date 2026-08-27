@@ -21,7 +21,7 @@ export interface OverviewAnnotations {
 export interface OverviewResponse {
   components: OverviewComponent[];
   edges: OverviewEdge[];
-  ai: { pending: boolean; applied: boolean };
+  ai: { pending: boolean; applied: boolean; error?: string };
   annotations?: OverviewAnnotations;
 }
 
@@ -32,8 +32,16 @@ function esc(s: string): string {
 /** label used in the rendered node text (must round-trip for click matching).
  * Always keeps the original folder name, appends the AI explanation after ':'. */
 export function componentLabel(c: OverviewComponent, ann?: OverviewAnnotations): string {
-  const a = ann?.components[c.id];
-  return a?.description ? `${c.name}: ${a.description}` : `${c.name} · ${c.fileCount}f ${c.symbolCount}s`;
+  let a = ann?.components[c.id];
+  if (!a && ann?.components) {
+    const lower = c.id.toLowerCase();
+    for (const [k, v] of Object.entries(ann.components)) {
+      if (k.toLowerCase() === lower || k.toLowerCase().endsWith('/' + lower) || lower.endsWith('/' + k.toLowerCase())) { a = v; break; }
+    }
+  }
+  if (a?.description) return `${c.name}: ${a.description}`;
+  if (a?.label) return `${c.name}: ${a.label}`;
+  return `${c.name} · ${c.fileCount} files, ${c.symbolCount} symbols`;
 }
 
 export function overviewToMermaid(data: OverviewResponse): {

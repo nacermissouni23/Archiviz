@@ -4,6 +4,7 @@ import { depsToMermaid } from './lib/depsMermaid';
 import { renderMermaid, wireNodeClicks } from './lib/mermaidInit';
 import { useZoomPan } from './lib/useZoomPan';
 import { Copy, Check } from 'lucide-react';
+import DiagramFilter from './components/DiagramFilter';
 
 export default function DepsView({
   filePath,
@@ -15,6 +16,10 @@ export default function DepsView({
   const [deps, setDeps] = useState<DepsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState('');
+  const [matchCount, setMatchCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const { viewportRef, canvasRef, scale, offset, zoomBy, fit, inject, viewportProps } =
     useZoomPan();
 
@@ -65,6 +70,60 @@ export default function DepsView({
 
   const empty = deps && deps.dependencies.length === 0 && deps.dependents.length === 0;
 
+  // apply diagram filter: dim non-matching SVG nodes
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const svgEl = canvas.querySelector('svg');
+    if (!svgEl) return;
+
+    const nodes = svgEl.querySelectorAll('g.node, g.cluster');
+    const edges = svgEl.querySelectorAll('g.edge');
+
+    if (!filterQuery) {
+      nodes.forEach((n) => {
+        (n as HTMLElement).style.opacity = '';
+        (n as HTMLElement).style.transition = '';
+      });
+      edges.forEach((e) => {
+        (e as HTMLElement).style.opacity = '';
+        (e as HTMLElement).style.transition = '';
+      });
+      setMatchCount(0);
+      setTotalCount(0);
+      return;
+    }
+
+    const needle = filterQuery.toLowerCase();
+    let matches = 0;
+
+    const getNodeText = (n: Element): string => {
+      const parts: string[] = [];
+      n.querySelectorAll('text').forEach((t) => parts.push(t.textContent ?? ''));
+      n.querySelectorAll('foreignObject div').forEach((d) => parts.push(d.textContent ?? ''));
+      return parts.join(' ').toLowerCase();
+    };
+
+    nodes.forEach((n) => {
+      const text = getNodeText(n);
+      if (text.includes(needle)) {
+        matches++;
+        (n as HTMLElement).style.opacity = '1';
+      } else {
+        (n as HTMLElement).style.opacity = '0.15';
+      }
+      (n as HTMLElement).style.transition = 'opacity 0.2s';
+    });
+
+    edges.forEach((e) => {
+      (e as HTMLElement).style.opacity = '0.1';
+      (e as HTMLElement).style.transition = 'opacity 0.2s';
+    });
+
+    setMatchCount(matches);
+    setTotalCount(nodes.length);
+  }, [filterQuery, canvasRef]);
+
   return (
     <>
       <div className="code-header">
@@ -102,12 +161,12 @@ export default function DepsView({
             }}
           />
           <div className="graph-actions">
-            {deps && !empty && (
-              <button title="Copy Mermaid" onClick={copyCode}>
-                {copied ? <Check size={14} strokeWidth={2} /> : <Copy size={14} strokeWidth={2} />}
-              </button>
-            )}
             <div className="zoom-controls">
+              {deps && !empty && (
+                <button title="Copy Mermaid" onClick={copyCode}>
+                  {copied ? <Check size={14} strokeWidth={2} /> : <Copy size={14} strokeWidth={2} />}
+                </button>
+              )}
               <button title="Zoom in" onClick={() => zoomBy(1.2)}>
                 +
               </button>
@@ -118,6 +177,14 @@ export default function DepsView({
                 −
               </button>
               <span className="zoom-label">{Math.round(scale * 100)}%</span>
+              <DiagramFilter
+                open={filterOpen}
+                onToggle={() => { setFilterOpen(!filterOpen); setFilterQuery(''); }}
+                query={filterQuery}
+                onQueryChange={setFilterQuery}
+                matchCount={matchCount}
+                totalCount={totalCount}
+              />
             </div>
           </div>
         </div>

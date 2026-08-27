@@ -24,7 +24,7 @@ export interface OverviewAnnotations {
 export interface OverviewData {
   components: OverviewComponent[];
   edges: OverviewEdge[];
-  ai: { pending: boolean; applied: boolean };
+  ai: { pending: boolean; applied: boolean; error?: string };
   annotations?: OverviewAnnotations;
   /** All folders with at least one indexed file, for AI annotation */
   allFolders: { id: string; name: string; fileCount: number; symbolCount: number; topSymbols: string[] }[];
@@ -214,10 +214,25 @@ export async function annotateOverview(
     const annotations: OverviewAnnotations = { components: {}, edges: {} };
 
     for (const c of parsed?.components ?? []) {
-      if (typeof c?.id !== 'string' || !validIds.has(c.id)) continue;
-      annotations.components[c.id] = {
-        label: typeof c.label === 'string' ? c.label.slice(0, 60) : undefined,
-        description: typeof c.description === 'string' ? c.description.slice(0, 120) : undefined,
+      if (typeof c?.id !== 'string') continue;
+      // try exact match first
+      let matchId = validIds.has(c.id) ? c.id : undefined;
+      // try stripping leading path segments if AI added extra nesting
+      if (!matchId) {
+        for (const vid of validIds) {
+          if (c.id.endsWith('/' + vid) || vid.endsWith('/' + c.id) || c.id === vid) {
+            matchId = vid;
+            break;
+          }
+        }
+      }
+      if (!matchId) continue;
+      const label = typeof c.label === 'string' ? c.label.slice(0, 60).trim() : undefined;
+      const desc = typeof c.description === 'string' ? c.description.slice(0, 120).trim() : undefined;
+      if (!label && !desc) continue;
+      annotations.components[matchId] = {
+        label: label || undefined,
+        description: desc || undefined,
       };
     }
     const validPairs = new Set(data.edges.map((e) => `${e.src}\u0000${e.dst}`));

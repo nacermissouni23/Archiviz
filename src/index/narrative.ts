@@ -21,7 +21,7 @@ export interface StorySkeleton {
 export interface StoryData {
   segments: StorySegment[];
   skeleton: StorySkeleton;
-  ai: { pending: boolean; applied: boolean };
+  ai: { pending: boolean; applied: boolean; error?: string };
 }
 
 const SERVER_PACKAGES = ['express', 'fastify', 'koa', '@hapi/hapi', 'hono', 'next'];
@@ -187,7 +187,7 @@ export async function annotateStory(
 ): Promise<StorySegment[] | null> {
   const prompt = [
     'You are writing a short "how it works" explanation of a code repository for a developer seeing it for the first time.',
-    'Write 3 to 6 short sentences. Use ONLY the facts given below — never invent files, components, systems, or behaviors.',
+    'Write 3 to 6 short sentences. Use ONLY the facts given below, never invent files, components, systems, or behaviors.',
     'Mark references by wrapping them exactly like {{file:src/main.ts}}, {{component:src}}, {{system:pg}}, or {{actor:cli}}.',
     'Only reference the exact files/components/systems/actors listed. Plain sentences between markers must not contain file paths.',
     '',

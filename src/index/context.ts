@@ -170,7 +170,7 @@ export interface ContextData {
   systems: ContextSystem[];
   actors: ContextActor[];
   libraries: ContextLibrary[];
-  ai: { pending: boolean; applied: boolean };
+  ai: { pending: boolean; applied: boolean; error?: string };
   annotations?: ContextAnnotations;
 }
 
@@ -401,7 +401,7 @@ export async function annotateContext(
     '- The app identity comes ONLY from the folder names and evidence given. Do not invent features.',
     '- system/actor labels must describe WHAT the thing is (e.g. "PostgreSQL database", "Browser clients"). Never repeat the raw id/name as the label.',
     '- Use ONLY the system names, actor ids and library names given. Never add entries.',
-    '- libraries roles must be SPECIFIC: "Mermaid diagram renderer", "React UI framework" — never bare "library" or "UI library".',
+    '- libraries roles must be SPECIFIC: "Mermaid diagram renderer", "React UI framework", never bare "library" or "UI library".',
     '- app.description max 20 words.',
     '',
     JSON.stringify({

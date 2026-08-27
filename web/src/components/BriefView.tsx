@@ -27,7 +27,7 @@ interface BriefData {
   }[];
   flows: { symbolId: string; name: string; file: string; line: number; callCount: number }[];
   components: { id: string; label: string; description?: string; fileCount: number; symbolCount: number }[];
-  ai: { pending: boolean; applied: boolean };
+  ai: { pending: boolean; applied: boolean; error?: string };
 }
 
 export default function BriefView({
@@ -91,9 +91,10 @@ export default function BriefView({
     <>
       <div className="code-header">
         <div className="code-breadcrumb">
-          <span className="current">{repoName} — Repository Brief</span>
+          <span className="current">{repoName} - Repository Brief</span>
           {brief?.ai.applied && <span className="ai-badge">AI annotated</span>}
           {brief?.ai.pending && <span className="ai-badge pending">AI annotating…</span>}
+          {brief?.ai.error && !brief?.ai.pending && !brief?.ai.applied && <span className="ai-badge error" title={brief.ai.error}>AI failed: {brief.ai.error}</span>}
         </div>
       </div>
       {error ? (
@@ -166,9 +167,6 @@ export default function BriefView({
                       {l.role && <span className="brief-chip-role">: {l.role}</span>}
                     </span>
                   ))}
-                  {brief.libraryCount > brief.topLibraries.length && (
-                    <span className="brief-chip more">+{brief.libraryCount - brief.topLibraries.length} more</span>
-                  )}
                 </div>
               </section>
             )}
@@ -215,7 +213,7 @@ export default function BriefView({
                     title="Open Component Overview"
                   >
                     <span className="brief-row-label">
-                      {c.description ? `${c.label} — ${c.description}` : c.label}
+                      {c.description ? `${c.label} - ${c.description}` : c.label}
                     </span>
                     <span className="brief-row-file">
                       {c.fileCount} files · {c.symbolCount} symbols

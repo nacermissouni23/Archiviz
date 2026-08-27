@@ -122,7 +122,7 @@ export default function Inspector({
             </div>
             <div className="rel-list">
               {data.callees.length === 0 ? (
-                <div className="rel-empty">None found — no indexed calls.</div>
+                <div className="rel-empty">None found, no indexed calls.</div>
               ) : (
                 data.callees.map(relItem)
               )}

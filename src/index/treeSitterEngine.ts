@@ -522,7 +522,7 @@ export async function indexTreeSitter(
       const wasmPath = require.resolve(`tree-sitter-wasms/out/tree-sitter-${lang}.wasm`);
       wasmLang = await ParserClass.Language.load(wasmPath);
     } catch (e) {
-      console.warn(`  tree-sitter: grammar not found for ${lang} — ${e}`);
+      console.warn(`  tree-sitter: grammar not found for ${lang} - ${e}`);
       continue;
     }
 

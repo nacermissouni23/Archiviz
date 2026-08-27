@@ -1,6 +1,6 @@
 # Archi
 
-Local-first, deterministic code architecture explorer. No AI, no API keys, no cloud, no database — everything runs on your machine.
+Local-first, deterministic code architecture explorer. Everything runs on your machine. Optional AI adds human-readable labels - your code never leaves the device, only an anonymous graph summary is sent for labeling.
 
 ```bash
 npx archi /path/to/your/project
@@ -29,7 +29,7 @@ Drill down:  Repository → Folder → File → Class → Function → source co
 - Click any node to see its **callers**, **callees**, and definition location.
 - Click a file in the tree to see its symbols and read-only source.
 - `Ctrl+K` searches symbol names and full-text code.
-- Edited your code? Hit refresh / re-run — Archi re-indexes on demand.
+- Edited your code? Hit refresh / re-run - Archi re-indexes on demand.
 
 ## Supported languages
 
@@ -37,10 +37,10 @@ Archi uses **four indexing engines** to cover 36 languages:
 
 | Engine | Languages | Indexing quality |
 |--------|-----------|-----------------|
-| **TS LanguageService** | TypeScript, JavaScript | Full — symbols, imports, type-checked call edges, env vars, route detection |
-| **Pyright LSP** | Python | Full — symbols, imports, type-checked call edges |
-| **Gopls LSP** | Go | Full — symbols, imports, call edges |
-| **Tree-sitter WASM** | C, C++, C#, Rust, Ruby, PHP, Kotlin, Swift, Java, Dart, Elixir, Elm, Lua, Objective-C, OCaml, Scala, Zig, Bash, Solidity, ReScript, and more | AST-based — symbols, imports, call edges |
+| **TS LanguageService** | TypeScript, JavaScript | Full - symbols, imports, type-checked call edges, env vars, route detection |
+| **Pyright LSP** | Python | Full - symbols, imports, type-checked call edges |
+| **Gopls LSP** | Go | Full - symbols, imports, call edges |
+| **Tree-sitter WASM** | C, C++, C#, Rust, Ruby, PHP, Kotlin, Swift, Java, Dart, Elixir, Elm, Lua, Objective-C, OCaml, Scala, Zig, Bash, Solidity, ReScript, and more | AST-based - symbols, imports, call edges |
 
 **Manifest parsers** also detect dependencies from: `package.json`, `requirements.txt`, `pyproject.toml`, `go.mod`, `pom.xml`, `build.gradle`, `Cargo.toml`, `composer.json`, `Gemfile`, `*.csproj`.
 
@@ -55,9 +55,22 @@ Archi indexes your code once and derives five progressive views:
 | **L0** | Repository Brief | One-paragraph summary + key files |
 | **L1** | System Context | External dependencies, env vars, confidence ratings |
 | **L2** | Component Overview | Folder structure, language breakdown, symbol counts |
-| **L3** | Dependencies | Import graph — who depends on whom |
+| **L3** | Dependencies | Import graph - who depends on whom |
 | **L4** | Execution Trace | Entry points, call chains, route flows |
-| **L5** | Symbol Inspector | Click any symbol — callers, callees, definition |
+| **L5** | Symbol Inspector | Click any symbol - callers, callees, definition |
+
+## AI annotations (optional)
+
+```bash
+# add your Gemini key once (stored in ~/.archi/config.json)
+# get a key at https://aistudio.google.com/app/apikey
+ARCHI_AI_KEY=AIza... archi /path/to/project
+# or set it in .env / ~/.archi/config.json via the Settings UI
+```
+
+One merged AI call per indexing (~5k chars) annotates all three views: Component Overview, System Context, and Repository Brief. If the key is missing or invalid, Archi works fully with deterministic plain labels. Badges show `AI annotating…` → `AI annotated` or `AI failed: <reason>` (hover for details).
+
+**Privacy:** Archi builds the graph locally. Only the graph summary (folder names, top symbols, system kinds - no file contents) is sent to Google for labeling. See Settings for details.
 
 ## CLI options
 
@@ -75,24 +88,24 @@ You can also start without a path (`npx archi`) and paste one into the UI.
 CLI (bin/archi.js)
   └── Fastify server (src/server.ts)
         ├── Indexers
-        │     ├── FileWalker — walks files, skips node_modules/.git/etc, respects .gitignore
-        │     ├── TsIndexer — TypeScript/JavaScript (TS LanguageService)
-        │     ├── PyEngine — Python (pyright LSP over JSON-RPC)
-        │     ├── GoEngine — Go (gopls LSP over JSON-RPC)
-        │     └── TreeSitterEngine — 32 languages (web-tree-sitter WASM)
-        ├── Manifests — parses package.json, requirements.txt, go.mod, pom.xml, etc.
-        ├── GraphStore — in-memory graph (nodes + edges), callersOf/calleesOf queries
-        ├── Context — SYSTEM_SIGNATURES for 50+ frameworks/libraries
+        │     ├── FileWalker - walks files, skips node_modules/.git/etc, respects .gitignore
+        │     ├── TsIndexer - TypeScript/JavaScript (TS LanguageService)
+        │     ├── PyEngine - Python (pyright LSP over JSON-RPC)
+        │     ├── GoEngine - Go (gopls LSP over JSON-RPC)
+        │     └── TreeSitterEngine - 32 languages (web-tree-sitter WASM)
+        ├── Manifests - parses package.json, requirements.txt, go.mod, pom.xml, etc.
+        ├── GraphStore - in-memory graph (nodes + edges), callersOf/calleesOf queries
+        ├── Context - SYSTEM_SIGNATURES for 50+ frameworks/libraries
         ├── REST API (/api/repos/:id/...)
         └── Static React app (Vite + React + React Flow + Mermaid)
 ```
 
 Key design decisions:
 
-- **In-memory only** — no database, no persistence. Re-index on demand.
-- **Zero network calls** — everything runs locally. No telemetry.
-- **Deterministic** — same code + same engine = same graph, every time.
-- **Confidence-rated** — HIGH = imported in indexed code; MED = env-var-only or manifest-declared-only.
+- **In-memory only** - no database, no persistence. Re-index on demand.
+- **Zero network calls** - everything runs locally. No telemetry.
+- **Deterministic** - same code + same engine = same graph, every time.
+- **Confidence-rated** - HIGH = imported in indexed code; MED = env-var-only or manifest-declared-only.
 
 ## Project structure
 
@@ -111,7 +124,7 @@ archi/
       lsp.ts             Generic LSP client (JSON-RPC over stdio)
       treeSitterEngine.ts Tree-sitter WASM engine (32 languages)
       manifests.ts       Manifest parsers (10+ formats)
-      store.ts           GraphStore — in-memory graph
+      store.ts           GraphStore - in-memory graph
       context.ts         SYSTEM_SIGNATURES, LABEL_OVERRIDES, matchSystemKind()
       brief.ts           L0: repository brief generation
       narrative.ts       L1: system context narrative

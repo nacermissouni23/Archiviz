@@ -37,7 +37,7 @@ export interface BriefData {
   entryPoints: BriefEntryPoint[];
   flows: BriefFlow[];
   components: BriefComponent[];
-  ai: { pending: boolean; applied: boolean };
+  ai: { pending: boolean; applied: boolean; error?: string };
 }
 
 /** extract candidate file paths from a package.json script/main/bin value */
@@ -148,7 +148,6 @@ export function buildBrief(
     });
 
   const topLibraries = (context?.libraries ?? [])
-    .slice(0, 8)
     .map((l) => ({ name: l.name, role: context?.annotations?.libraries?.[l.name] }));
 
   const description =

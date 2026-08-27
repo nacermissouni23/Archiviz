@@ -7,3 +7,5 @@ coverage/
 .env.*
 .DS_Store
 Thumbs.db
+opencode.json
+prod.md

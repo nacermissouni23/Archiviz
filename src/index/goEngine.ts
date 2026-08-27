@@ -145,7 +145,7 @@ export async function indexGo(
     try {
       texts.set(rel, fs.readFileSync(path.join(root, rel), 'utf8'));
     } catch {
-      /* unreadable — skip */
+      /* unreadable - skip */
     }
   }
   const openable = [...texts.keys()];

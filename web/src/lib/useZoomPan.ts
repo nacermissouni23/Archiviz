@@ -89,7 +89,7 @@ export function useZoomPan() {
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const t = e.target as HTMLElement;
-    // never start a drag from controls — pointer capture would swallow their click
+    // never start a drag from controls - pointer capture would swallow their click
     if (t.closest('button, .zoom-controls, .ov-info, a, input')) return;
     if (t.closest('g.node')) return;
     drag.current = {
