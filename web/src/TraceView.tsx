@@ -116,7 +116,13 @@ export default function TraceView({
   const fitWidth = () => {
     const sv = scrollRef.current?.querySelector('svg');
     if (!sv || !scrollRef.current) return;
-    setScale(Math.min((scrollRef.current.clientWidth - 40) / sv.clientWidth, 2));
+    const newScale = Math.min((scrollRef.current.clientWidth - 40) / sv.clientWidth, 2);
+    setScale(newScale);
+    requestAnimationFrame(() => {
+      if (!scrollRef.current || !sv) return;
+      const contentW = sv.clientWidth * newScale;
+      scrollRef.current.scrollLeft = Math.max(0, (contentW - scrollRef.current.clientWidth) / 2);
+    });
   };
 
   const copyCode = () => {

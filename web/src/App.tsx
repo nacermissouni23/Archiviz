@@ -211,7 +211,7 @@ export default function App() {
       .catch(() => {});
     fetch('/api/index/fresh')
       .then((r) => r.json())
-      .then((d) => setFresh(Boolean(d.fresh)))
+      .then((d) => { if (typeof d.fresh === 'boolean') setFresh(d.fresh); })
       .catch(() => {});
   }, []);
 

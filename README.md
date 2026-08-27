@@ -2,6 +2,8 @@
 
 Local-first, deterministic code architecture explorer. Everything runs on your machine. Optional AI adds human-readable labels - your code never leaves the device, only an anonymous graph summary is sent for labeling.
 
+![Archi - Repository to architecture map](assets/components.png)
+
 ```bash
 npx archi /path/to/your/project
 ```
@@ -68,7 +70,7 @@ ARCHI_AI_KEY=AIza... archi /path/to/project
 # or set it in .env / ~/.archi/config.json via the Settings UI
 ```
 
-One merged AI call per indexing (~5k chars) annotates all three views: Component Overview, System Context, and Repository Brief. If the key is missing or invalid, Archi works fully with deterministic plain labels. Badges show `AI annotating…` → `AI annotated` or `AI failed: <reason>` (hover for details).
+One merged AI call per indexing (~5k chars) annotates all three views: Component Overview, System Context, and Repository Brief. If the key is missing or invalid, Archi works fully with deterministic plain labels. Badges show `AI annotating…` → `AI annotated` or `AI failed: <reason>` (hover for details). Only Google AI Studio API keys are supported for now.
 
 **Privacy:** Archi builds the graph locally. Only the graph summary (folder names, top symbols, system kinds - no file contents) is sent to Google for labeling. See Settings for details.
 

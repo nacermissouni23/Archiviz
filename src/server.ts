@@ -312,11 +312,12 @@ async function main() {
   });
 
   app.get('/api/index/fresh', async () => {
+    if (!indexedFingerprint) return { fresh: true };
     try {
       const current = await fingerprint(target);
       return { fresh: current === indexedFingerprint };
     } catch {
-      return { fresh: false };
+      return { fresh: true };
     }
   });
 

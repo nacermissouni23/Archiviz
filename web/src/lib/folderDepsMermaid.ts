@@ -41,7 +41,9 @@ export function subfolderTitle(relPath: string, ann?: CompAnnotations): string {
     }
   }
   const name = relPath.split('/').pop() + '/';
-  return a?.description ? `${name}: ${a.description}` : a?.label ? `${name}: ${a.label}` : name;
+  const raw = a?.description ?? a?.label;
+  if (raw) return `${name}: ${raw}`;
+  return name;
 }
 
 export function folderToMermaid(

@@ -8,7 +8,7 @@ export function ensureMermaid() {
       startOnLoad: false,
       theme: 'dark',
       securityLevel: 'loose',
-      flowchart: { curve: 'basis', padding: 12 },
+      flowchart: { curve: 'basis', padding: 16, htmlLabels: true, wrappingWidth: 260 },
     });
     initialized = true;
   }

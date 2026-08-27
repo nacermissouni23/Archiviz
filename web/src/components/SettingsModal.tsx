@@ -74,6 +74,7 @@ export default function SettingsModal({
           Enable human-readable labels on the Component Overview and System Context views.
           The graph is always built locally. AI only renames things.
         </p>
+        <p className="settings-sub">Only Google AI Studio API keys are supported for now.</p>
 
         {hasKey && !removed && !key && (
           <div className="settings-status">

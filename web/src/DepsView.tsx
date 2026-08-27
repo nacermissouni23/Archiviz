@@ -41,7 +41,7 @@ export default function DepsView({
       .then((svg) => {
         if (cancelled || !canvasRef.current) return;
         inject(svg);
-        wireNodeClicks(canvasRef.current, (label) => {
+        wireNodeClicks(canvasRef.current!, (label) => {
           const all = [...deps.dependencies, ...deps.dependents];
           const hit = all.find((d) => d.name === label);
           if (hit) {

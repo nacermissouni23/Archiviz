@@ -903,8 +903,6 @@ button {
   padding: 20px;
 }
 .trace-canvas svg { display: block; }
-.trace-canvas foreignObject { overflow: hidden; }
-.trace-canvas foreignObject > div { max-width: 260px; word-wrap: break-word; overflow-wrap: break-word; }
 
 .trace-actions {
   position: absolute;
@@ -936,8 +934,6 @@ button {
 }
 .deps-canvas svg { display: block; }
 .deps-canvas g.node { cursor: pointer; }
-.deps-canvas foreignObject { overflow: hidden; }
-.deps-canvas foreignObject > div { max-width: 260px; word-wrap: break-word; overflow-wrap: break-word; }
 .nav-controls {
   position: absolute;
   top: 10px;
@@ -1194,10 +1190,15 @@ button {
   font-size: 13px;
   color: var(--text-2);
   line-height: 1.6;
-  margin-bottom: 20px;
+  margin-bottom: 8px;
   max-width: 360px;
   margin-left: auto;
   margin-right: auto;
+}
+.settings-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-bottom: 16px;
 }
 .settings-input {
   width: 100%;

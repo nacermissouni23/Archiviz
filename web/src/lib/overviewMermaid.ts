@@ -39,8 +39,8 @@ export function componentLabel(c: OverviewComponent, ann?: OverviewAnnotations):
       if (k.toLowerCase() === lower || k.toLowerCase().endsWith('/' + lower) || lower.endsWith('/' + k.toLowerCase())) { a = v; break; }
     }
   }
-  if (a?.description) return `${c.name}: ${a.description}`;
-  if (a?.label) return `${c.name}: ${a.label}`;
+  const raw = a?.description ?? a?.label;
+  if (raw) return `${c.name}: ${raw}`;
   return `${c.name} · ${c.fileCount} files, ${c.symbolCount} symbols`;
 }
 
