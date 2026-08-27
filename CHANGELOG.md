@@ -2,6 +2,10 @@
 
 All notable changes to Archiviz.
 
+## [0.1.2] - 2026-08-27
+### Fixed
+- Bump `glob` to `^11.0.3` via overrides (fixes deprecated warning from `@fastify/static`)
+
 ## [0.1.1] - 2026-08-27
 ### Added
 - Repository, homepage, bugs links for npm → GitHub package linking

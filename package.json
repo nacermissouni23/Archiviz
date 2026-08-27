@@ -1,6 +1,6 @@
 {
   "name": "@nacermissouni23/archiviz",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Local-first, deterministic code architecture explorer",
   "license": "MIT",
@@ -42,5 +42,8 @@
   "devDependencies": {
     "@types/node": "^22.9.0",
     "tsx": "^4.19.2"
+  },
+  "overrides": {
+    "glob": "^11.0.3"
   }
 }
