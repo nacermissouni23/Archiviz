@@ -5,7 +5,7 @@ Local-first, deterministic code architecture explorer. Everything runs on your m
 ![Archiviz - Repository to architecture map](assets/components.png)
 
 ```bash
-npx archiviz /path/to/your/project
+npx @nacermissouni23/archiviz /path/to/your/project
 ```
 
 Then open **http://127.0.0.1:4840** (opens automatically).
@@ -15,7 +15,7 @@ Then open **http://127.0.0.1:4840** (opens automatically).
 ## What it does
 
 ```text
-npx archiviz <folder>
+npx @nacermissouni23/archiviz <folder>
    ↓
 localhost web app
    ↓
@@ -83,7 +83,7 @@ archiviz --no-open      don't auto-open the browser
 # archi works too as an alias
 ```
 
-You can also start without a path (`npx archiviz`) and paste one into the UI.
+You can also start without a path (`npx @nacermissouni23/archiviz`) and paste one into the UI.
 
 ## Architecture
 
