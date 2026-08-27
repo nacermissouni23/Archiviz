@@ -5,7 +5,7 @@ Local-first, deterministic code architecture explorer. Everything runs on your m
 ![Archi - Repository to architecture map](assets/components.png)
 
 ```bash
-npx archi /path/to/your/project
+npx archiviz /path/to/your/project
 ```
 
 Then open **http://127.0.0.1:4840** (opens automatically).
@@ -77,12 +77,13 @@ One merged AI call per indexing (~5k chars) annotates all three views: Component
 ## CLI options
 
 ```text
-archi [path]            folder to index immediately
-archi --port 5000       custom port (default 4840)
-archi --no-open         don't auto-open the browser
+archiviz [path]         folder to index immediately
+archiviz --port 5000    custom port (default 4840)
+archiviz --no-open      don't auto-open the browser
+# archi works too as an alias
 ```
 
-You can also start without a path (`npx archi`) and paste one into the UI.
+You can also start without a path (`npx archiviz`) and paste one into the UI.
 
 ## Architecture
 

@@ -1,11 +1,12 @@
 {
-  "name": "archi",
+  "name": "archiviz",
   "version": "0.1.0",
   "type": "module",
   "description": "Local-first, deterministic code architecture explorer",
   "license": "MIT",
   "bin": {
-    "archi": "./bin/archi.js"
+    "archiviz": "bin/archi.js",
+    "archi": "bin/archi.js"
   },
   "files": [
     "bin/",
