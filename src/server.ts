@@ -82,6 +82,10 @@ async function main() {
   await validateTarget();
 
   const app = Fastify({ logger: false });
+  app.addHook('onSend', async (_req, reply) => {
+    reply.header('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;");
+    reply.header('X-Content-Type-Options', 'nosniff');
+  });
   const rootName = path.basename(target);
 
   // ---- AI key management (env > ~/.archi/config.json) ----
@@ -134,7 +138,7 @@ async function main() {
     return { ok: true };
   });
 
-  app.get('/api/repo', async () => ({ name: rootName, root: target }));
+  app.get('/api/repo', async () => ({ name: rootName }));
 
   app.get('/api/tree', async () => {
     const tree = await walkDir(target);
@@ -451,7 +455,8 @@ async function main() {
 
   app.get('/api/file', async (req, reply) => {
     const rel = String((req.query as any).path ?? '');
-    if (!rel || rel.includes('..') || path.isAbsolute(rel)) {
+    const base = rel.split('/').pop() ?? rel;
+    if (!rel || rel.includes('..') || path.isAbsolute(rel) || ['.env','.env.local','.env.development','.env.production'].includes(base) || /\.(pem|key)$/.test(base) || /id_rsa/.test(base)) {
       return reply.code(400).send({ error: 'invalid path' });
     }
     const abs = path.join(target, rel);

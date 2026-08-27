@@ -8,6 +8,9 @@ const IGNORED_DIRS = new Set([
   '.next', '.cache', 'coverage',
 ]);
 
+const SENSITIVE_FILES = new Set(['.env', '.env.local', '.env.development', '.env.production', '.env.test']);
+const SENSITIVE_PATTERNS = [/\.pem$/, /\.key$/, /id_rsa/, /id_dsa/, /credentials\.json$/];
+
 async function readGitignore(dir: string): Promise<string[]> {
   try {
     const raw = await fs.readFile(path.join(dir, '.gitignore'), 'utf8');
@@ -53,7 +56,7 @@ export async function walkDir(root: string): Promise<TreeNode> {
         if (children.length === 0) continue;
         nodes.push({ name: entry.name, path: rel, type: 'dir', children });
       } else if (entry.isFile()) {
-        // show every file in the tree, even ones we can't render (videos, images, ...)
+        if (SENSITIVE_FILES.has(entry.name) || SENSITIVE_PATTERNS.some(r => r.test(entry.name))) continue;
         const ext = path.extname(entry.name).toLowerCase();
         if (matchesIgnore(rel, localIgnores)) continue;
         nodes.push({ name: entry.name, path: rel, type: 'file', ext });
