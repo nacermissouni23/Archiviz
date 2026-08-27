@@ -72,7 +72,7 @@ async function validateTarget() {
     const st = await fs.stat(target);
     if (!st.isDirectory()) throw new Error('not a directory');
   } catch {
-    console.error(`archi: "${target}" is not a readable folder.`);
+    console.error(`archiviz: "${target}" is not a readable folder.`);
     process.exit(1);
   }
 }
@@ -483,7 +483,7 @@ async function main() {
   } catch {
     app.get('/', async (_req, reply) => {
       reply.type('text/html; charset=utf-8').send(
-        '<body style="background:#10141b;color:#e8ebf1;font-family:monospace;padding:40px">Frontend assets missing in this install. Reinstall archi, or run <code>npm run build</code> in the repo and use <code>npm start</code>.</body>'
+        '<body style="background:#10141b;color:#e8ebf1;font-family:monospace;padding:40px">Frontend assets missing in this install. Reinstall archiviz, or run <code>npm run build</code> in the repo and use <code>npm start</code>.</body>'
       );
     });
   }
@@ -505,13 +505,13 @@ async function main() {
     }
   }
   if (!bound) {
-    console.error(`  archi: ports ${port}–${port + MAX_PORT_TRIES - 1} are all busy. Pass --port <n>.`);
+    console.error(`  archiviz: ports ${port}–${port + MAX_PORT_TRIES - 1} are all busy. Pass --port <n>.`);
     process.exit(1);
   }
   port = bound;
 
   const url = `http://127.0.0.1:${port}`;
-  console.log(`\n  Archi - indexing ${rootName}`);
+  console.log(`\n  Archiviz - indexing ${rootName}`);
   console.log(`  ${url}\n`);
   if (open) {
     const { exec } = await import('node:child_process');

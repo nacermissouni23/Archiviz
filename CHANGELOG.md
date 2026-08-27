@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Archi.
+All notable changes to Archiviz.
 
 ## [0.1.0] - 2026-08-27
 

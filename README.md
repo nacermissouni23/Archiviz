@@ -1,8 +1,8 @@
-# Archi
+# Archiviz
 
 Local-first, deterministic code architecture explorer. Everything runs on your machine. Optional AI adds human-readable labels - your code never leaves the device, only an anonymous graph summary is sent for labeling.
 
-![Archi - Repository to architecture map](assets/components.png)
+![Archiviz - Repository to architecture map](assets/components.png)
 
 ```bash
 npx archiviz /path/to/your/project
@@ -15,7 +15,7 @@ Then open **http://127.0.0.1:4840** (opens automatically).
 ## What it does
 
 ```text
-npx archi <folder>
+npx archiviz <folder>
    ↓
 localhost web app
    ↓
@@ -31,11 +31,11 @@ Drill down:  Repository → Folder → File → Class → Function → source co
 - Click any node to see its **callers**, **callees**, and definition location.
 - Click a file in the tree to see its symbols and read-only source.
 - `Ctrl+K` searches symbol names and full-text code.
-- Edited your code? Hit refresh / re-run - Archi re-indexes on demand.
+- Edited your code? Hit refresh / re-run - Archiviz re-indexes on demand.
 
 ## Supported languages
 
-Archi uses **four indexing engines** to cover 36 languages:
+Archiviz uses **four indexing engines** to cover 36 languages:
 
 | Engine | Languages | Indexing quality |
 |--------|-----------|-----------------|
@@ -46,11 +46,11 @@ Archi uses **four indexing engines** to cover 36 languages:
 
 **Manifest parsers** also detect dependencies from: `package.json`, `requirements.txt`, `pyproject.toml`, `go.mod`, `pom.xml`, `build.gradle`, `Cargo.toml`, `composer.json`, `Gemfile`, `*.csproj`.
 
-> If the source code says it, Archi knows it. If Archi doesn't know it, it doesn't invent it.
+> If the source code says it, Archiviz knows it. If Archiviz doesn't know it, it doesn't invent it.
 
 ## The five levels of understanding
 
-Archi indexes your code once and derives five progressive views:
+Archiviz indexes your code once and derives five progressive views:
 
 | Level | View | What it shows |
 |-------|------|---------------|
@@ -66,13 +66,13 @@ Archi indexes your code once and derives five progressive views:
 ```bash
 # add your Gemini key once (stored in ~/.archi/config.json)
 # get a key at https://aistudio.google.com/app/apikey
-ARCHI_AI_KEY=AIza... archi /path/to/project
+ARCHI_AI_KEY=AIza... archiviz /path/to/project
 # or set it in .env / ~/.archi/config.json via the Settings UI
 ```
 
-One merged AI call per indexing (~5k chars) annotates all three views: Component Overview, System Context, and Repository Brief. If the key is missing or invalid, Archi works fully with deterministic plain labels. Badges show `AI annotating…` → `AI annotated` or `AI failed: <reason>` (hover for details). Only Google AI Studio API keys are supported for now.
+One merged AI call per indexing (~5k chars) annotates all three views: Component Overview, System Context, and Repository Brief. If the key is missing or invalid, Archiviz works fully with deterministic plain labels. Badges show `AI annotating…` → `AI annotated` or `AI failed: <reason>` (hover for details). Only Google AI Studio API keys are supported for now.
 
-**Privacy:** Archi builds the graph locally. Only the graph summary (folder names, top symbols, system kinds - no file contents) is sent to Google for labeling. See Settings for details.
+**Privacy:** Archiviz builds the graph locally. Only the graph summary (folder names, top symbols, system kinds - no file contents) is sent to Google for labeling. See Settings for details.
 
 ## CLI options
 
@@ -171,7 +171,7 @@ cd web && npm run dev
 
 ## Contributing
 
-Archi is open source (MIT). Contributions welcome.
+Archiviz is open source (MIT). Contributions welcome.
 
 1. Fork the repo
 2. Create a feature branch (`git checkout -b feature/my-feature`)
@@ -189,7 +189,7 @@ Archi is open source (MIT). Contributions welcome.
 
 **Adding framework awareness:**
 
-Add entries to `SYSTEM_SIGNATURES` in `src/index/context.ts`. Each entry maps a package name to its known symbols (classes, functions, constants). This enables Archi to recognize framework calls even when the framework source isn't indexed.
+Add entries to `SYSTEM_SIGNATURES` in `src/index/context.ts`. Each entry maps a package name to its known symbols (classes, functions, constants). This enables Archiviz to recognize framework calls even when the framework source isn't indexed.
 
 ## License
 

@@ -12,7 +12,7 @@ export function parseArgs(argv: string[]) {
     } else if (a === '--no-open') {
       flags.open = false;
     } else if (a === '-h' || a === '--help') {
-      console.log('archi [path] [--port N] [--no-open]');
+      console.log('archiviz [path] [--port N] [--no-open]');
       process.exit(0);
     } else if (!a.startsWith('-')) {
       target = a;
